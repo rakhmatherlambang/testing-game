@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASHEN VEIL — The Kingdom Remembers</title>
+  <style>
+    :root {
+      --bg-dark: #07080a;
+      --panel-bg: rgba(11, 13, 17, 0.88);
+      --border-muted: rgba(145, 135, 120, 0.28);
+      --border-bright: rgba(195, 175, 145, 0.55);
+      --text-main: #d8d2c7;
+      --text-muted: #8e8a82;
+      --accent-ember: #c87a41;
+      --accent-soul: #78a3b8;
+      --font-serif: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-serif);
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Subtle atmospheric vignette overlay */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at center, transparent 48%, rgba(4, 5, 7, 0.78) 100%);
+    }
+
+    /* UI Layer */
+    #ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Menus (Main, Pause, Error) */
+    .overlay-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: radial-gradient(circle at center, rgba(12, 15, 20, 0.78) 0%, rgba(5, 6, 8, 0.96) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      pointer-events: auto;
+      transition: opacity 0.45s ease;
+    }
+
+    .overlay-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .menu-card {
+      width: 100%;
+      max-width: 540px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-muted);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), inset 0 0 40px rgba(0, 0, 0, 0.6);
+      padding: 42px 38px;
+      text-align: center;
+      position: relative;
+    }
+
+    .menu-card::before,
+    .menu-card::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-bright), transparent);
+    }
+
+    .menu-card::before { top: 12px; }
+    .menu-card::after { bottom: 12px; }
+
+    .game-title {
+      font-size: 2.9rem;
+      letter-spacing: 0.26em;
+      font-weight: 400;
+      color: #e6dfd3;
+      text-indent: 0.26em;
+      margin-bottom: 6px;
+      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.9);
+    }
+
+    .game-subtitle {
+      font-size: 0.95rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      font-style: italic;
+    }
+
+    .lore-blurb {
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: #b5afa4;
+      margin-bottom: 28px;
+      padding: 0 10px;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .fantasy-btn {
+      background: rgba(24, 27, 34, 0.85);
+      color: var(--text-main);
+      border: 1px solid var(--border-muted);
+      padding: 13px 24px;
+      font-family: var(--font-serif);
+      font-size: 1rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.22s ease;
+    }
+
+    .fantasy-btn:hover {
+      background: rgba(44, 48, 58, 0.95);
+      border-color: var(--border-bright);
+      color: #ffffff;
+      box-shadow: 0 0 18px rgba(200, 122, 65, 0.18);
+    }
+
+    .fantasy-btn:active {
+      transform: translateY(1px);
+    }
+
+    .controls-box {
+      text-align: left;
+      border-top: 1px solid rgba(145, 135, 120, 0.18);
+      padding-top: 20px;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .controls-title {
+      font-family: var(--font-serif);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-main);
+      margin-bottom: 10px;
+      font-size: 0.84rem;
+      text-align: center;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px 18px;
+    }
+
+    .control-item {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dotted rgba(255, 255, 255, 0.07);
+      padding-bottom: 3px;
+    }
+
+    .key-badge {
+      color: #d6cec2;
+      font-weight: 600;
+    }
+
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(145, 135, 120, 0.15);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .settings-row input[type="range"] {
+      accent-color: var(--accent-ember);
+      width: 130px;
+      cursor: pointer;
+    }
+
+    /* Gameplay HUD */
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 26px 34px;
+    }
+
+    .zone-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: opacity 0.6s ease;
+    }
+
+    .zone-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .zone-name {
+      font-size: 1.45rem;
+      letter-spacing: 0.14em;
+      color: #e4ddd0;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+    }
+
+    .discovery-tracker {
+      background: rgba(10, 12, 16, 0.72);
+      border: 1px solid var(--border-muted);
+      padding: 8px 14px;
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #b9b2a6;
+    }
+
+    /* Center Area Discovery Toast */
+    #area-toast {
+      position: fixed;
+      top: 24%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.9s ease;
+      z-index: 12;
+    }
+
+    #area-toast.visible {
+      opacity: 1;
+    }
+
+    #area-toast .toast-title {
+      font-size: 2.1rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #e8e1d5;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.95);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-bright);
+    }
+
+    #area-toast .toast-sub {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* Bottom HUD: Interaction Prompt & Lore Modal */
+    .hud-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 48px;
+      gap: 16px;
+    }
+
+    #interaction-prompt {
+      background: rgba(10, 12, 15, 0.85);
+      border: 1px solid var(--border-bright);
+      padding: 10px 22px;
+      font-size: 0.92rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #ece6da;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.8);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    #interaction-prompt.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #interaction-prompt .prompt-key {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 0 4px;
+      border: 1px solid var(--accent-ember);
+      color: var(--accent-ember);
+      font-weight: 600;
+    }
+
+    /* Lore Dialogue Panel */
+    #dialogue-modal {
+      position: fixed;
+      bottom: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 620px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-bright);
+      box-shadow: 0 20px 55px rgba(0, 0, 0, 0.92);
+      padding: 28px 34px;
+      z-index: 18;
+      pointer-events: auto;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    #dialogue-modal.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 14px);
+    }
+
+    .dialogue-header {
+      font-size: 1.15rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent-ember);
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-muted);
+      padding-bottom: 8px;
+    }
+
+    .dialogue-body {
+      font-size: 1.02rem;
+      line-height: 1.72;
+      color: var(--text-main);
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+
+    .dialogue-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .close-dialogue-btn {
+      background: rgba(30, 34, 42, 0.9);
+      border: 1px solid var(--border-muted);
+      color: var(--text-main);
+      padding: 7px 16px;
+      font-family: var(--font-serif);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .close-dialogue-btn:hover {
+      border-color: var(--border-bright);
+      color: #fff;
+    }
+
+    /* Subtle Center Reticle Dot */
+    #reticle {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 4px;
+      background: rgba(216, 210, 199, 0.35);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    @media (max-width: 600px) {
+      .game-title { font-size: 2.1rem; }
+      .menu-card { padding: 28px 20px; }
+      .controls-grid { grid-template-columns: 1fr; }
+      .hud-top { padding: 16px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div class="vignette"></div>
+  <div id="reticle"></div>
+
+  <!-- Gameplay HUD -->
+  <div id="ui-layer">
+    <div class="hud-top">
+      <div class="zone-banner">
+        <span class="zone-label">Current Reckoning</span>
+        <span class="zone-name" id="hud-zone-name">Forsaken Courtyard</span>
+      </div>
+      <div class="discovery-tracker" id="hud-relic-counter">
+        Echoes Remembered: 0 / 5
+      </div>
+    </div>
+
+    <div id="area-toast">
+      <div class="toast-title" id="toast-title">Forsaken Courtyard</div>
+      <div class="toast-sub" id="toast-sub">Remnants of the Outer Watch</div>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="interaction-prompt">
+        Press <span class="prompt-key">E</span> to inspect <span id="prompt-object-name">Ancient Shrine</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lore Inspection Modal -->
+  <div id="dialogue-modal" class="hidden">
+    <div class="dialogue-header" id="dialogue-title">Weathered Inscription</div>
+    <div class="dialogue-body" id="dialogue-text">
+      "The names of the forgotten dead have been carved into the stone. Beneath the ash, something still remembers."
+    </div>
+    <div class="dialogue-footer">
+      <span>Press E or ESC to close</span>
+      <button class="close-dialogue-btn" id="close-dialogue-btn">Leave It Be</button>
+    </div>
+  </div>
+
+  <!-- Main Menu Overlay -->
+  <div id="main-menu" class="overlay-screen">
+    <div class="menu-card">
+      <h1 class="game-title">ASHEN VEIL</h1>
+      <p class="game-subtitle">The kingdom remembers.</p>
+      <p class="lore-blurb">
+        Centuries after the sun dimmed behind a perpetual pall of ash, you walk the silent stones of Oakhaven Keep. No banners fly. Only embers and carved epitaphs remain to tell of what was lost.
+      </p>
+      <div class="btn-group">
+        <button class="fantasy-btn" id="btn-start-journey">Start Journey</button>
+      </div>
+      <div class="controls-box">
+        <div class="controls-title">Wayfarer Controls</div>
+        <div class="controls-grid">
+          <div class="control-item"><span>Move</span><span class="key-badge">W A S D</span></div>
+          <div class="control-item"><span>Camera</span><span class="key-badge">Mouse / Drag</span></div>
+          <div class="control-item"><span>Sprint</span><span class="key-badge">Shift</span></div>
+          <div class="control-item"><span>Jump</span><span class="key-badge">Space</span></div>
+          <div class="control-item"><span>Inspect Relic</span><span class="key-badge">E</span></div>
+          <div class="control-item"><span>Zoom Camera</span><span class="key-badge">Scroll Wheel</span></div>
+          <div class="control-item"><span>Pause / Release Cursor</span><span class="key-badge">ESC</span></div>
+        </div>
+        <div class="settings-row">
+          <label for="sensitivity-slider">Camera Sensitivity</label>
+          <input type="range" id="sensitivity-slider" min="0.3" max="2.5" step="0.1" value="1.0" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause Menu Overlay -->
+  <div id="pause-menu" class="overlay-screen hidden">
+    <div class="menu-card">
+      <h2 class="game-title" style="font-size: 2.2rem;">REST BY THE ASH</h2>
+      <p class="game-subtitle">Journey Paused</p>
+      <div class="btn-group">
+        <button class="fantasy-btn" id="btn-resume">Resume Journey</button>
+        <button class="fantasy-btn" id="btn-restart">Return to Courtyard</button>
+        <button class="fantasy-btn" id="btn-main-menu">Main Menu</button>
+      </div>
+      <div class="controls-box">
+        <div class="settings-row" style="border-top: none; margin-top: 0; padding-top: 0;">
+          <label for="pause-sensitivity-slider">Camera Sensitivity</label>
+          <input type="range" id="pause-sensitivity-slider" min="0.3" max="2.5" step="0.1" value="1.0" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Fallback Overlay -->
+  <div id="error-screen" class="overlay-screen hidden">
+    <div class="menu-card">
+      <h2 class="game-title" style="font-size: 1.8rem;">THE VEIL FALTERS</h2>
+      <p class="game-subtitle">Initialization Error</p>
+      <p class="lore-blurb" id="error-message-text">
+        WebGL could not be initialized, or your browser blocked the module script. If opening via file://, try serving this directory over a local HTTP server.
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+    (() => {
+      'use strict';
+
+      // ==========================================
+      // 1. STATE & CONFIGURATION
+      // ==========================================
+      const STATE = {
+        mode: 'MAIN_MENU', // 'MAIN_MENU' | 'PLAYING' | 'PAUSED' | 'DIALOGUE'
+        sensitivity: 1.0,
+        discoveredIds: new Set(),
+        totalRelics: 5,
+        currentZone: 'Forsaken Courtyard',
+        activeInteractable: null
+      };
+
+      const INPUT = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        sprint: false,
+        jumpPressed: false,
+        isDraggingMouse: false,
+        prevMouseX: 0,
+        prevMouseY: 0
+      };
+
+      // DOM Elements
+      const container = document.getElementById('canvas-container');
+      const mainMenuEl = document.getElementById('main-menu');
+      const pauseMenuEl = document.getElementById('pause-menu');
+      const errorScreenEl = document.getElementById('error-screen');
+      const errorTextEl = document.getElementById('error-message-text');
+      const dialogueModalEl = document.getElementById('dialogue-modal');
+      const dialogueTitleEl = document.getElementById('dialogue-title');
+      const dialogueTextEl = document.getElementById('dialogue-text');
+      const interactionPromptEl = document.getElementById('interaction-prompt');
+      const promptObjectNameEl = document.getElementById('prompt-object-name');
+      const hudZoneNameEl = document.getElementById('hud-zone-name');
+      const hudRelicCounterEl = document.getElementById('hud-relic-counter');
+      const areaToastEl = document.getElementById('area-toast');
+      const toastTitleEl = document.getElementById('toast-title');
+      const toastSubEl = document.getElementById('toast-sub');
+      const sensSlider1 = document.getElementById('sensitivity-slider');
+      const sensSlider2 = document.getElementById('pause-sensitivity-slider');
+
+      // Collision & Interaction registries
+      const circleColliders = []; // { x, z, r }
+      const boxColliders = [];    // { minX, maxX, minZ, maxZ }
+      const cameraBlockers = [];  // THREE.Mesh list for camera raycasting
+      const interactables = [];   // { id, name, title, text, pos: Vector3, radius, light, mesh }
+      const flickeringLights = []; // { light, baseIntensity, speed, phase, mesh }
+
+      // ==========================================
+      // 2. TERRAIN HEIGHT FUNCTION
+      // ==========================================
+      // Smooth continuous heightfield with a flat courtyard at origin,
+      // a winding road heading North (-Z), a shrine hill to the East (+X),
+      // and a risen citadel bluff in the far North (-Z).
+      function getTerrainHeight(x, z) {
+        // Road centerline X as a function of Z
+        const roadCenterX = Math.sin(z * 0.035) * 9.0;
+        const distFromRoad = Math.abs(x - roadCenterX);
+        const roadFlatten = THREE.MathUtils.smoothstep(distFromRoad, 2.5, 10.0);
+
+        // Gentle rolling undulations
+        let h = (Math.sin(x * 0.055) * Math.cos(z * 0.055) * 1.6 +
+                 Math.sin(x * 0.13 + z * 0.09) * 0.55) * roadFlatten;
+
+        // Flatten starting courtyard around (0, 0)
+        const distOrigin = Math.hypot(x, z);
+        const courtyardFactor = THREE.MathUtils.smoothstep(distOrigin, 11.0, 22.0);
+        h *= courtyardFactor;
+
+        // Elevated Cursed Shrine mound at (28, -28)
+        const distShrine = Math.hypot(x - 28, z + 28);
+        if (distShrine < 22) {
+          const t = 1.0 - distShrine / 22.0;
+          h += t * t * (3 - 2 * t) * 3.8;
+        }
+
+        // Western Watchtower bluff at (-30, -34)
+        const distWest = Math.hypot(x + 30, z + 34);
+        if (distWest < 20) {
+          const t = 1.0 - distWest / 20.0;
+          h += t * t * (3 - 2 * t) * 2.8;
+        }
+
+        // Northern Citadel bridge approach & cliff rise
+        if (z < -58) {
+          const northFactor = Math.min(1.0, (-58 - z) / 45.0);
+          h += northFactor * northFactor * 9.0;
+        }
+
+        // Outer boundary ring mountains so the world feels enclosed
+        const worldRadius = Math.hypot(x, z + 25);
+        if (worldRadius > 78) {
+          const edge = (worldRadius - 78) / 28.0;
+          h += edge * edge * 14.0;
+        }
+
+        return h;
+      }
+
+      // ==========================================
+      // 3. THREE.JS SCENE, RENDERER & LIGHTING
+      // ==========================================
+      let renderer, scene, camera;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
+        container.appendChild(renderer.domElement);
+      } catch (err) {
+        errorScreenEl.classList.remove('hidden');
+        mainMenuEl.classList.add('hidden');
+        errorTextEl.textContent = 'Could not create a WebGL rendering context. Please ensure hardware acceleration is enabled in your browser.';
+        return;
+      }
+
+      scene = new THREE.Scene();
+      const fogColor = new THREE.Color(0x131820);
+      scene.background = fogColor;
+      // Exponential distance fog for strong dark-fantasy depth
+      scene.fog = new THREE.FogExp2(fogColor, 0.0155);
+
+      camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.25, 240);
+
+      // Overcast Sky Dome with vertical gradient
+      const skyGeo = new THREE.SphereGeometry(210, 24, 16);
+      const skyPos = skyGeo.attributes.position;
+      const skyColors = [];
+      const zenithColor = new THREE.Color(0x07090d);
+      const horizonColor = new THREE.Color(0x1b222c);
+      const tmpColor = new THREE.Color();
+      for (let i = 0; i < skyPos.count; i++) {
+        const y = skyPos.getY(i);
+        const t = THREE.MathUtils.clamp((y + 20) / 140, 0, 1);
+        tmpColor.copy(horizonColor).lerp(zenithColor, t);
+        skyColors.push(tmpColor.r, tmpColor.g, tmpColor.b);
+      }
+      skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyColors, 3));
+      const skyMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false });
+      const skyDome = new THREE.Mesh(skyGeo, skyMat);
+      scene.add(skyDome);
+
+      // Dim pale moon disc high in the northern sky
+      const moonGeo = new THREE.CircleGeometry(7.5, 32);
+      const moonMat = new THREE.MeshBasicMaterial({
+        color: 0x9cb2c9,
+        transparent: true,
+        opacity: 0.28,
+        fog: false
+      });
+      const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+      moonMesh.position.set(-45, 78, -165);
+      moonMesh.lookAt(0, 0, 0);
+      scene.add(moonMesh);
+
+      // Ambient & Hemisphere Illumination (kept visible and moody, never pure black)
+      const hemiLight = new THREE.HemisphereLight(0x46586e, 0x1c1917, 0.95);
+      scene.add(hemiLight);
+
+      // Restrained cold moonlight directional light with shadows
+      const dirLight = new THREE.DirectionalLight(0x88a2bd, 1.35);
+      dirLight.position.set(-38, 62, -45);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.camera.near = 10;
+      dirLight.shadow.camera.far = 165;
+      const d = 62;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      dirLight.shadow.bias = -0.0006;
+      scene.add(dirLight);
+
+      // ==========================================
+      // 4. SHARED MATERIALS & GEOMETRIES
+      // ==========================================
+      const MATS = {
+        darkStone: new THREE.MeshStandardMaterial({
+          color: 0x2a2d32,
+          roughness: 0.92,
+          metalness: 0.08,
+          flatShading: true
+        }),
+        weatheredStone: new THREE.MeshStandardMaterial({
+          color: 0x383b40,
+          roughness: 0.88,
+          metalness: 0.05,
+          flatShading: true
+        }),
+        ancientSlab: new THREE.MeshStandardMaterial({
+          color: 0x22252a,
+          roughness: 0.95,
+          metalness: 0.05
+        }),
+        deadWood: new THREE.MeshStandardMaterial({
+          color: 0x1d1916,
+          roughness: 0.96,
+          metalness: 0.02,
+          flatShading: true
+        }),
+        bone: new THREE.MeshStandardMaterial({
+          color: 0x8c8578,
+          roughness: 0.8,
+          metalness: 0.05,
+          flatShading: true
+        }),
+        iron: new THREE.MeshStandardMaterial({
+          color: 0x1a1c1e,
+          roughness: 0.6,
+          metalness: 0.65
+        }),
+        emberGlow: new THREE.MeshStandardMaterial({
+          color: 0xff9d47,
+          emissive: 0xe86a17,
+          emissiveIntensity: 2.4,
+          roughness: 0.3
+        }),
+        soulGlow: new THREE.MeshStandardMaterial({
+          color: 0x8cd3ff,
+          emissive: 0x3b8ec2,
+          emissiveIntensity: 2.2,
+          roughness: 0.25
+        })
+      };
+
+      // ==========================================
+      // 5. WORLD GENERATION
+      // ==========================================
+      function buildWorld() {
+        // 5.1 Procedural Ground Terrain with Vertex Colors
+        const terrainSize = 240;
+        const terrainSegments = 128;
+        const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
+        terrainGeo.rotateX(-Math.PI / 2);
+
+        const posAttr = terrainGeo.attributes.position;
+        const colors = [];
+        const colEarth = new THREE.Color(0x161513);
+        const colPath = new THREE.Color(0x27282b);
+        const colRock = new THREE.Color(0x202329);
+        const cTmp = new THREE.Color();
+
+        for (let i = 0; i < posAttr.count; i++) {
+          const vx = posAttr.getX(i);
+          const vz = posAttr.getZ(i);
+          const vy = getTerrainHeight(vx, vz);
+          posAttr.setY(i, vy);
+
+          // Color blending based on road proximity and elevation
+          const roadCenterX = Math.sin(vz * 0.035) * 9.0;
+          const distRoad = Math.abs(vx - roadCenterX);
+          const distCourtyard = Math.hypot(vx, vz);
+
+          if ((distRoad < 2.9 && vz < 8 && vz > -75) || distCourtyard < 10.5) {
+            cTmp.copy(colPath);
+          } else if (vy > 2.2) {
+            cTmp.copy(colEarth).lerp(colRock, Math.min(1, (vy - 2.2) / 5.0));
+          } else {
+            cTmp.copy(colEarth);
+          }
+          // Subtle per-vertex noise
+          const n = (Math.sin(vx * 0.7) * Math.cos(vz * 0.7)) * 0.025;
+          cTmp.offsetHSL(0, 0, n);
+          colors.push(cTmp.r, cTmp.g, cTmp.b);
+        }
+
+        terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        terrainGeo.computeVertexNormals();
+
+        const terrainMat = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.96,
+          metalness: 0.02,
+          flatShading: true
+        });
+        const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+        terrainMesh.receiveShadow = true;
+        scene.add(terrainMesh);
+        cameraBlockers.push(terrainMesh);
+
+        // 5.2 Helper Builders for Ruins, Arches, Pillars, Braziers
+        const pillarBaseGeo = new THREE.BoxGeometry(1.5, 0.8, 1.5);
+        const pillarShaftGeo = new THREE.CylinderGeometry(0.55, 0.65, 5.2, 8);
+        const pillarCapGeo = new THREE.BoxGeometry(1.6, 0.6, 1.6);
+
+        function createPillar(x, z, heightScale = 1.0, broken = false) {
+          const group = new THREE.Group();
+          const y = getTerrainHeight(x, z);
+          group.position.set(x, y, z);
+
+          const base = new THREE.Mesh(pillarBaseGeo, MATS.darkStone);
+          base.position.y = 0.4;
+          base.castShadow = true;
+          base.receiveShadow = true;
+          group.add(base);
+
+          const shaftH = broken ? 2.6 * heightScale : 5.2 * heightScale;
+          const shaftGeo = new THREE.CylinderGeometry(0.52, 0.65, shaftH, 8);
+          const shaft = new THREE.Mesh(shaftGeo, MATS.weatheredStone);
+          shaft.position.y = 0.8 + shaftH * 0.5;
+          if (broken) {
+            shaft.rotation.z = (Math.random() - 0.5) * 0.08;
+          }
+          shaft.castShadow = true;
+          shaft.receiveShadow = true;
+          group.add(shaft);
+          cameraBlockers.push(shaft);
+
+          if (!broken) {
+            const cap = new THREE.Mesh(pillarCapGeo, MATS.darkStone);
+            cap.position.y = 0.8 + shaftH + 0.3;
+            cap.castShadow = true;
+            group.add(cap);
+          }
+
+          scene.add(group);
+          circleColliders.push({ x, z, r: 0.85 });
+        }
+
+        function createGothicArch(x, z, rotY = 0, scale = 1.0) {
+          const group = new THREE.Group();
+          const y = getTerrainHeight(x, z);
+          group.position.set(x, y, z);
+          group.rotation.y = rotY;
+          group.scale.setScalar(scale);
+
+          const colGeo = new THREE.BoxGeometry(1.2, 6.5, 1.2);
+          const leftCol = new THREE.Mesh(colGeo, MATS.darkStone);
+          leftCol.position.set(-2.6, 3.25, 0);
+          leftCol.castShadow = true;
+          leftCol.receiveShadow = true;
+          group.add(leftCol);
+
+          const rightCol = new THREE.Mesh(colGeo, MATS.darkStone);
+          rightCol.position.set(2.6, 3.25, 0);
+          rightCol.castShadow = true;
+          rightCol.receiveShadow = true;
+          group.add(rightCol);
+
+          // Pointed gothic lintel beams
+          const beamGeo = new THREE.BoxGeometry(3.6, 0.9, 1.3);
+          const leftBeam = new THREE.Mesh(beamGeo, MATS.weatheredStone);
+          leftBeam.position.set(-1.35, 7.1, 0);
+          leftBeam.rotation.z = 0.42;
+          leftBeam.castShadow = true;
+          group.add(leftBeam);
+
+          const rightBeam = new THREE.Mesh(beamGeo, MATS.weatheredStone);
+          rightBeam.position.set(1.35, 7.1, 0);
+          rightBeam.rotation.z = -0.42;
+          rightBeam.castShadow = true;
+          group.add(rightBeam);
+
+          const keystone = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 1.4), MATS.darkStone);
+          keystone.position.set(0, 7.75, 0);
+          group.add(keystone);
+
+          scene.add(group);
+          cameraBlockers.push(leftCol, rightCol, leftBeam, rightBeam);
+
+          // Compute world positions of the two columns for collision
+          const cos = Math.cos(rotY);
+          const sin = Math.sin(rotY);
+          const lx = x + (-2.6 * scale) * cos;
+          const lz = z - (-2.6 * scale) * sin;
+          const rx = x + (2.6 * scale) * cos;
+          const rz = z - (2.6 * scale) * sin;
+          circleColliders.push({ x: lx, z: lz, r: 0.85 * scale });
+          circleColliders.push({ x: rx, z: rz, r: 0.85 * scale });
+        }
+
+        function createWallSegment(x, z, length, height, rotY = 0) {
+          const y = getTerrainHeight(x, z);
+          const geo = new THREE.BoxGeometry(length, height, 1.3);
+          const mesh = new THREE.Mesh(geo, MATS.darkStone);
+          mesh.position.set(x, y + height * 0.5 - 0.3, z);
+          mesh.rotation.y = rotY;
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          scene.add(mesh);
+          cameraBlockers.push(mesh);
+
+          // Approximate wall segment with overlapping circle colliders along its length
+          const steps = Math.max(2, Math.ceil(length / 1.5));
+          const cos = Math.cos(rotY);
+          const sin = Math.sin(rotY);
+          for (let i = 0; i < steps; i++) {
+            const offset = -length * 0.5 + (i + 0.5) * (length / steps);
+            const cx = x + offset * cos;
+            const cz = z - offset * sin;
+            circleColliders.push({ x: cx, z: cz, r: 0.85 });
+          }
+        }
+
+        function createBrazier(x, z, isSoulFire = false, withPointLight = true) {
+          const y = getTerrainHeight(x, z);
+          const group = new THREE.Group();
+          group.position.set(x, y, z);
+
+          const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.65, 1.35, 7), MATS.darkStone);
+          stand.position.y = 0.675;
+          stand.castShadow = true;
+          group.add(stand);
+
+          const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.4, 0.45, 8), MATS.iron);
+          bowl.position.y = 1.45;
+          group.add(bowl);
+
+          const emberMat = isSoulFire ? MATS.soulGlow : MATS.emberGlow;
+          const flame = new THREE.Mesh(new THREE.OctahedronGeometry(0.36, 1), emberMat);
+          flame.position.y = 1.75;
+          group.add(flame);
+
+          if (withPointLight) {
+            const color = isSoulFire ? 0x5ab4eb : 0xff7b29;
+            const light = new THREE.PointLight(color, 2.4, 19, 1.7);
+            light.position.set(0, 2.1, 0);
+            group.add(light);
+            flickeringLights.push({
+              light,
+              baseIntensity: 2.4,
+              speed: 3.5 + Math.random() * 2.5,
+              phase: Math.random() * Math.PI * 2,
+              mesh: flame
+            });
+          }
+
+          scene.add(group);
+          circleColliders.push({ x, z, r: 0.7 });
+          return group;
+        }
+
+        // 5.3 Build Starting Ruined Courtyard (Around 0, 0)
+        createGothicArch(0, -11.5, 0, 1.15);
+        createWallSegment(-7.2, -11.5, 6.5, 3.8, 0.08);
+        createWallSegment(7.2, -11.5, 6.5, 3.2, -0.06);
+        createWallSegment(-11.5, -3.0, 8.0, 2.7, Math.PI * 0.5);
+        createWallSegment(11.5, -2.5, 7.5, 3.4, Math.PI * 0.5);
+        createWallSegment(-6.5, 9.5, 7.0, 2.4, 0.2);
+        createWallSegment(6.5, 9.5, 6.0, 2.9, -0.25);
+
+        // Courtyard pillars
+        createPillar(-6.5, -5.5, 1.0, false);
+        createPillar(6.5, -5.5, 0.7, true);
+        createPillar(-6.5, 4.5, 0.6, true);
+        createPillar(6.5, 4.5, 1.0, false);
+
+        // Courtyard Braziers framing the northern archway
+        createBrazier(-3.8, -9.2, false, true);
+        createBrazier(3.8, -9.2, false, true);
+
+        // 5.4 Ancient Stone Path Stepping Slabs & Roadside Arches
+        const slabGeo = new THREE.BoxGeometry(2.6, 0.24, 1.6);
+        const slabCount = 34;
+        const slabInstanced = new THREE.InstancedMesh(slabGeo, MATS.ancientSlab, slabCount);
+        slabInstanced.receiveShadow = true;
+        const dummy = new THREE.Object3D();
+
+        for (let i = 0; i < slabCount; i++) {
+          const sz = 4 - i * 2.15;
+          const sx = Math.sin(sz * 0.035) * 9.0 + (Math.random() - 0.5) * 0.6;
+          const sy = getTerrainHeight(sx, sz);
+          dummy.position.set(sx, sy + 0.04, sz);
+          dummy.rotation.set(
+            (Math.random() - 0.5) * 0.06,
+            Math.cos(sz * 0.035) * -0.3 + (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 0.06
+          );
+          dummy.scale.set(0.85 + Math.random() * 0.4, 1, 0.85 + Math.random() * 0.35);
+          dummy.updateMatrix();
+          slabInstanced.setMatrixAt(i, dummy.matrix);
+        }
+        scene.add(slabInstanced);
+
+        // Mid-road broken arches and walls
+        const midZ1 = -32;
+        const midX1 = Math.sin(midZ1 * 0.035) * 9.0;
+        createGothicArch(midX1, midZ1, -0.25, 1.05);
+        createBrazier(midX1 - 4.0, midZ1 + 2.0, false, true);
+
+        const midZ2 = -54;
+        const midX2 = Math.sin(midZ2 * 0.035) * 9.0;
+        createGothicArch(midX2, midZ2, 0.15, 1.15);
+        createPillar(midX2 - 5.2, midZ2 - 4.0, 0.8, true);
+        createPillar(midX2 + 5.2, midZ2 - 4.0, 1.0, false);
+
+        // 5.5 Eastern Cursed Shrine Landmark (28, -28)
+        const shrineX = 28;
+        const shrineZ = -28;
+        const shrineY = getTerrainHeight(shrineX, shrineZ);
+        const shrineGroup = new THREE.Group();
+        shrineGroup.position.set(shrineX, shrineY, shrineZ);
+
+        // Stepped stone dais
+        const dais1 = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 6.2, 0.6, 8), MATS.darkStone);
+        dais1.position.y = 0.3;
+        dais1.receiveShadow = true;
+        shrineGroup.add(dais1);
+
+        const dais2 = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 4.3, 0.6, 8), MATS.weatheredStone);
+        dais2.position.y = 0.9;
+        dais2.receiveShadow = true;
+        shrineGroup.add(dais2);
+
+        // Central Cursed Obelisk
+        const obelisk = new THREE.Mesh(new THREE.ConeGeometry(0.95, 5.5, 4), MATS.darkStone);
+        obelisk.position.y = 3.6;
+        obelisk.castShadow = true;
+        shrineGroup.add(obelisk);
+        cameraBlockers.push(obelisk);
+
+        // Ring of monolithic standing stones around the shrine
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2 + 0.3;
+          const rx = shrineX + Math.cos(ang) * 5.0;
+          const rz = shrineZ + Math.sin(ang) * 5.0;
+          createPillar(rx, rz, 0.65 + (i % 2) * 0.3, i % 2 === 0);
+        }
+
+        scene.add(shrineGroup);
+        circleColliders.push({ x: shrineX, z: shrineZ, r: 1.4 });
+        createBrazier(shrineX - 2.6, shrineZ + 2.4, true, true);
+
+        // 5.6 Western Collapsed Watchtower Ruin (-30, -34)
+        const towerX = -30;
+        const towerZ = -34;
+        createWallSegment(towerX, towerZ - 4.5, 7.0, 4.8, 0.1);
+        createWallSegment(towerX - 4.2, towerZ, 7.0, 3.5, Math.PI * 0.5 + 0.1);
+        createWallSegment(towerX + 4.2, towerZ + 1.0, 4.5, 2.2, Math.PI * 0.5 - 0.15);
+        createPillar(towerX - 2.5, towerZ + 4.2, 0.75, true);
+        createBrazier(towerX, towerZ, false, true);
+
+        // 5.7 Distant Ruined Castle Silhouette in the North (z = -95 to -135)
+        const castleGroup = new THREE.Group();
+        const castleBaseY = getTerrainHeight(0, -82);
+        castleGroup.position.set(0, castleBaseY - 1.0, -92);
+
+        // Citadel Gatehouse
+        const gatehouse = new THREE.Mesh(new THREE.BoxGeometry(24, 18, 10), MATS.darkStone);
+        gatehouse.position.set(0, 9, 0);
+        castleGroup.add(gatehouse);
+
+        // Soaring central keep spire
+        const mainKeep = new THREE.Mesh(new THREE.BoxGeometry(18, 38, 18), MATS.darkStone);
+        mainKeep.position.set(0, 19, -18);
+        castleGroup.add(mainKeep);
+
+        const keepCrown = new THREE.Mesh(new THREE.ConeGeometry(13, 16, 4), MATS.weatheredStone);
+        keepCrown.position.set(0, 46, -18);
+        keepCrown.rotation.y = Math.PI * 0.25;
+        castleGroup.add(keepCrown);
+
+        // Flanking jagged towers
+        const towerGeo = new THREE.CylinderGeometry(4.2, 4.8, 30, 8);
+        const spireGeo = new THREE.ConeGeometry(4.8, 11, 8);
+
+        [-18, 18, -32, 32].forEach((tx, idx) => {
+          const hMult = idx < 2 ? 1.0 : 0.78;
+          const tz = idx < 2 ? -6 : -14;
+          const tMesh = new THREE.Mesh(towerGeo, MATS.darkStone);
+          tMesh.scale.set(1, hMult, 1);
+          tMesh.position.set(tx, 15 * hMult, tz);
+          castleGroup.add(tMesh);
+
+          const sMesh = new THREE.Mesh(spireGeo, MATS.weatheredStone);
+          sMesh.position.set(tx, 30 * hMult + 5.5, tz);
+          castleGroup.add(sMesh);
+        });
+
+        // Connecting curtain walls
+        const curtainWall = new THREE.Mesh(new THREE.BoxGeometry(72, 13, 4), MATS.darkStone);
+        curtainWall.position.set(0, 6.5, -10);
+        castleGroup.add(curtainWall);
+
+        scene.add(castleGroup);
+        // Prevent player from walking through the sealed Citadel Gatehouse at z = -80
+        createGothicArch(0, -76, 0, 1.45);
+        createBrazier(-4.8, -74.5, true, true);
+        createBrazier(4.8, -74.5, true, false); // Visual flame without extra dynamic light
+
+        // 5.8 Procedural Dead Forest (Twisted Trees via InstancedMesh)
+        // Build a single compound BufferGeometry for a twisted dead tree
+        function createTwistedTreeGeometry() {
+          const geos = [];
+          // Trunk
+          const trunk = new THREE.CylinderGeometry(0.26, 0.58, 4.6, 6);
+          trunk.translate(0, 2.3, 0);
+          geos.push(trunk);
+
+          // Main Bough 1
+          const b1 = new THREE.CylinderGeometry(0.1, 0.25, 3.2, 5);
+          b1.rotateZ(0.58);
+          b1.rotateY(0.4);
+          b1.translate(-0.9, 4.9, 0.3);
+          geos.push(b1);
+
+          // Main Bough 2
+          const b2 = new THREE.CylinderGeometry(0.08, 0.22, 2.9, 5);
+          b2.rotateZ(-0.65);
+          b2.rotateY(-0.7);
+          b2.translate(0.85, 4.5, -0.45);
+          geos.push(b2);
+
+          // Main Bough 3
+          const b3 = new THREE.CylinderGeometry(0.07, 0.18, 2.4, 5);
+          b3.rotateX(0.62);
+          b3.translate(0.1, 4.3, 0.85);
+          geos.push(b3);
+
+          // Merge manually into one BufferGeometry
+          let totalVerts = 0;
+          let totalIndices = 0;
+          geos.forEach(g => {
+            totalVerts += g.attributes.position.count;
+            totalIndices += g.index.count;
+          });
+
+          const mergedPos = new Float32Array(totalVerts * 3);
+          const mergedNorm = new Float32Array(totalVerts * 3);
+          const mergedIdx = new Uint16Array(totalIndices);
+
+          let vOffset = 0;
+          let iOffset = 0;
+          geos.forEach(g => {
+            const p = g.attributes.position.array;
+            const n = g.attributes.normal.array;
+            const idx = g.index.array;
+
+            mergedPos.set(p, vOffset * 3);
+            mergedNorm.set(n, vOffset * 3);
+            for (let k = 0; k < idx.length; k++) {
+              mergedIdx[iOffset + k] = idx[k] + vOffset;
+            }
+            vOffset += g.attributes.position.count;
+            iOffset += idx.length;
+          });
+
+          const merged = new THREE.BufferGeometry();
+          merged.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
+          merged.setAttribute('normal', new THREE.BufferAttribute(mergedNorm, 3));
+          merged.setIndex(new THREE.BufferAttribute(mergedIdx, 1));
+          return merged;
+        }
+
+        const treeGeo = createTwistedTreeGeometry();
+        const treePositions = [];
+        const maxTrees = 115;
+
+        for (let attempt = 0; attempt < 350 && treePositions.length < maxTrees; attempt++) {
+          const tx = (Math.random() - 0.5) * 145;
+          const tz = 30 - Math.random() * 112; // z between +30 and -82
+
+          // Keep off starting courtyard
+          if (Math.hypot(tx, tz) < 15.5) continue;
+          // Keep off main winding road
+          const roadX = Math.sin(tz * 0.035) * 9.0;
+          if (Math.abs(tx - roadX) < 5.8) continue;
+          // Keep off Eastern Shrine mound
+          if (Math.hypot(tx - 28, tz + 28) < 9.5) continue;
+          // Keep off Western Watchtower
+          if (Math.hypot(tx + 30, tz + 34) < 8.5) continue;
+
+          // Prevent overlapping trees
+          let tooClose = false;
+          for (let j = 0; j < treePositions.length; j++) {
+            if (Math.hypot(tx - treePositions[j].x, tz - treePositions[j].z) < 4.2) {
+              tooClose = true;
+              break;
+            }
+          }
+          if (tooClose) continue;
+
+          const scale = 0.75 + Math.random() * 0.85;
+          treePositions.push({ x: tx, z: tz, scale, rotY: Math.random() * Math.PI * 2 });
+        }
+
+        const treeInstanced = new THREE.InstancedMesh(treeGeo, MATS.deadWood, treePositions.length);
+        treeInstanced.castShadow = true;
+        treeInstanced.receiveShadow = true;
+
+        treePositions.forEach((tp, idx) => {
+          const ty = getTerrainHeight(tp.x, tp.z);
+          dummy.position.set(tp.x, ty - 0.15, tp.z);
+          dummy.rotation.set(
+            (Math.random() - 0.5) * 0.14,
+            tp.rotY,
+            (Math.random() - 0.5) * 0.14
+          );
+          dummy.scale.setScalar(tp.scale);
+          dummy.updateMatrix();
+          treeInstanced.setMatrixAt(idx, dummy.matrix);
+
+          circleColliders.push({ x: tp.x, z: tp.z, r: 0.52 * tp.scale });
+        });
+        scene.add(treeInstanced);
+
+        // 5.9 Scattered Rocks & Bones (InstancedMesh)
+        const rockGeo = new THREE.DodecahedronGeometry(1.0, 1);
+        const rockCount = 130;
+        const rockInstanced = new THREE.InstancedMesh(rockGeo, MATS.weatheredStone, rockCount);
+        rockInstanced.castShadow = true;
+        rockInstanced.receiveShadow = true;
+
+        let rockIdx = 0;
+        for (let i = 0; i < 260 && rockIdx < rockCount; i++) {
+          const rx = (Math.random() - 0.5) * 150;
+          const rz = 32 - Math.random() * 115;
+          const roadX = Math.sin(rz * 0.035) * 9.0;
+          if (Math.abs(rx - roadX) < 3.5) continue;
+          if (Math.hypot(rx, rz) < 6.0) continue;
+
+          const ry = getTerrainHeight(rx, rz);
+          const sx = 0.4 + Math.random() * 1.45;
+          const sy = 0.35 + Math.random() * 0.95;
+          const sz = 0.4 + Math.random() * 1.45;
+
+          dummy.position.set(rx, ry + sy * 0.25, rz);
+          dummy.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+          dummy.scale.set(sx, sy, sz);
+          dummy.updateMatrix();
+          rockInstanced.setMatrixAt(rockIdx++, dummy.matrix);
+
+          if (Math.max(sx, sz) > 0.95) {
+            circleColliders.push({ x: rx, z: rz, r: Math.max(sx, sz) * 0.78 });
+          }
+        }
+        scene.add(rockInstanced);
+
+        // Scattered skeletal remains / weathered bones near ruins and trees
+        const boneGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.85, 5);
+        boneGeo.rotateZ(Math.PI * 0.46);
+        const boneCount = 45;
+        const boneInstanced = new THREE.InstancedMesh(boneGeo, MATS.bone, boneCount);
+        for (let i = 0; i < boneCount; i++) {
+          const bx = (Math.random() - 0.5) * 75;
+          const bz = 10 - Math.random() * 85;
+          const by = getTerrainHeight(bx, bz);
+          dummy.position.set(bx, by + 0.06, bz);
+          dummy.rotation.set(0.1, Math.random() * Math.PI * 2, 0.08);
+          dummy.scale.setScalar(0.7 + Math.random() * 0.6);
+          dummy.updateMatrix();
+          boneInstanced.setMatrixAt(i, dummy.matrix);
+        }
+        scene.add(boneInstanced);
+
+        // 5.10 Five Environmental Storytelling Interactables
+        function registerInteractable({ id, name, title, text, x, z, isSoul }) {
+          const y = getTerrainHeight(x, z);
+          const group = new THREE.Group();
+          group.position.set(x, y, z);
+
+          // Pedestal / Stele
+          const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.35, 0.55), MATS.weatheredStone);
+          pedestal.position.y = 0.675;
+          pedestal.castShadow = true;
+          pedestal.receiveShadow = true;
+          group.add(pedestal);
+
+          // Floating supernatural relic crystal / ember above pedestal
+          const relicMat = isSoul ? MATS.soulGlow : MATS.emberGlow;
+          const relicMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), relicMat);
+          relicMesh.position.y = 1.75;
+          group.add(relicMesh);
+
+          const ringMesh = new THREE.Mesh(
+            new THREE.TorusGeometry(0.42, 0.035, 8, 24),
+            MATS.iron
+          );
+          ringMesh.position.y = 1.75;
+          group.add(ringMesh);
+
+          scene.add(group);
+          circleColliders.push({ x, z, r: 0.65 });
+
+          interactables.push({
+            id,
+            name,
+            title,
+            text,
+            pos: new THREE.Vector3(x, y + 1.2, z),
+            radius: 3.6,
+            relicMesh,
+            ringMesh
+          });
+        }
+
+        registerInteractable({
+          id: 'courtyard_stele',
+          name: 'Weathered Stone Inscription',
+          title: 'Stele of the Outer Watch',
+          text: '"The names of the forgotten dead have been carved into the stone. Beneath the ash, something still remembers. Those who pass the northern arch walk where sunlight has been exiled."',
+          x: -3.2,
+          z: -3.8,
+          isSoul: false
+        });
+
+        registerInteractable({
+          id: 'wayfarer_cairn',
+          name: 'Fallen Sentinel Cairn',
+          title: 'Helm of the Ash-Sworn',
+          text: '"A rusted greathelm rests atop a cairn of river stones. Inside the visor, dried black roots have woven the likeness of a crown. The sentinel waited for a relief force that never marched."',
+          x: Math.sin(-25 * 0.035) * 9.0 + 3.4,
+          z: -25.0,
+          isSoul: true
+        });
+
+        registerInteractable({
+          id: 'cursed_shrine',
+          name: 'Altar of the Ashen Veil',
+          title: 'Shrine of the Pale Whisper',
+          text: '"Cold blue embers burn without fuel in the wind. An inscription along the altar rim reads: \'When the High King drank the starlight to ward off death, the sky wept cinders for forty winters.\'"',
+          x: 28.0,
+          z: -25.2,
+          isSoul: true
+        });
+
+        registerInteractable({
+          id: 'watchtower_relic',
+          name: 'Shattered Sun-Bell',
+          title: 'Bell of the Western Bastion',
+          text: '"Cast from tarnished bronze, this cracked bell once rang at dawn across the Whispering Boughs. Though its clapper is gone, placing a hand against the metal leaves a faint vibration in the bone."',
+          x: -28.5,
+          z: -32.8,
+          isSoul: false
+        });
+
+        registerInteractable({
+          id: 'citadel_seal',
+          name: 'Sealed Citadel Gate-Rune',
+          title: 'Edict of Oakhaven Keep',
+          text: '"Before the massive iron portcullis stands a final royal decree: \'Bar the gates. Let neither penitent nor pilgrim enter the Keep. What we have become belongs only to the dark.\'"',
+          x: 0.0,
+          z: -73.0,
+          isSoul: true
+        });
+      }
+
+      buildWorld();
+
+      // ==========================================
+      // 6. FLOATING ASH & EMBER PARTICLES
+      // ==========================================
+      const particleCount = 420;
+      const particleGeo = new THREE.BufferGeometry();
+      const pPositions = new Float32Array(particleCount * 3);
+      const pColors = new Float32Array(particleCount * 3);
+      const pSpeeds = new Float32Array(particleCount);
+
+      for (let i = 0; i < particleCount; i++) {
+        pPositions[i * 3] = (Math.random() - 0.5) * 90;
+        pPositions[i * 3 + 1] = Math.random() * 22;
+        pPositions[i * 3 + 2] = (Math.random() - 0.5) * 90;
+        pSpeeds[i] = 0.4 + Math.random() * 0.9;
+
+        // 85% grey ash, 15% faint orange ember
+        if (Math.random() < 0.85) {
+          pColors[i * 3] = 0.55;
+          pColors[i * 3 + 1] = 0.58;
+          pColors[i * 3 + 2] = 0.62;
+        } else {
+          pColors[i * 3] = 0.95;
+          pColors[i * 3 + 1] = 0.48;
+          pColors[i * 3 + 2] = 0.18;
+        }
+      }
+
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+      particleGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
+
+      const particleMat = new THREE.PointsMaterial({
+        size: 0.16,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false
+      });
+      const particleSystem = new THREE.Points(particleGeo, particleMat);
+      scene.add(particleSystem);
+
+      // ==========================================
+      // 7. PROCEDURAL 3D PLAYER CHARACTER
+      // ==========================================
+      const player = {
+        group: new THREE.Group(),
+        visualRoot: new THREE.Group(),
+        pos: new THREE.Vector3(0, 0, 2),
+        vel: new THREE.Vector3(0, 0, 0),
+        yaw: Math.PI, // Facing North (-Z) initially
+        radius: 0.48,
+        onGround: true,
+        walkCycle: 0,
+        parts: {}
+      };
+
+      function buildPlayerCharacter() {
+        const cloakMat = new THREE.MeshStandardMaterial({
+          color: 0x181c24,
+          roughness: 0.88,
+          metalness: 0.08,
+          flatShading: true
+        });
+        const trimMat = new THREE.MeshStandardMaterial({
+          color: 0x3b424f,
+          roughness: 0.7,
+          metalness: 0.25,
+          flatShading: true
+        });
+        const tunicMat = new THREE.MeshStandardMaterial({
+          color: 0x24272e,
+          roughness: 0.85
+        });
+        const bootMat = new THREE.MeshStandardMaterial({
+          color: 0x121110,
+          roughness: 0.9
+        });
+        const headMat = new THREE.MeshStandardMaterial({
+          color: 0x090a0d,
+          roughness: 0.95
+        });
+
+        player.group.add(player.visualRoot);
+
+        // Torso
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.68, 0.28), tunicMat);
+        torso.position.y = 1.12;
+        torso.castShadow = true;
+        player.visualRoot.add(torso);
+        player.parts.torso = torso;
+
+        // Sweeping Dark Cloak / Mantle
+        const cloakGeo = new THREE.ConeGeometry(0.54, 1.32, 7, 1, true);
+        const cloak = new THREE.Mesh(cloakGeo, cloakMat);
+        cloak.position.set(0, 0.98, 0.03);
+        cloak.rotation.x = 0.08;
+        cloak.castShadow = true;
+        player.visualRoot.add(cloak);
+        player.parts.cloak = cloak;
+
+        // Shoulder Mantle with subtle lighter rim for silhouette readability
+        const mantle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.44, 0.34, 7), trimMat);
+        mantle.position.set(0, 1.38, 0);
+        mantle.castShadow = true;
+        player.visualRoot.add(mantle);
+
+        // Head & Pointed Dark Fantasy Hood
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 1.56, 0);
+
+        const headSphere = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), headMat);
+        headGroup.add(headSphere);
+
+        const hood = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.42, 6), cloakMat);
+        hood.position.set(0, 0.08, 0.02);
+        hood.rotation.x = -0.18;
+        hood.castShadow = true;
+        headGroup.add(hood);
+
+        player.visualRoot.add(headGroup);
+        player.parts.headGroup = headGroup;
+
+        // Left & Right Arms (pivoted at shoulder)
+        const armGeo = new THREE.BoxGeometry(0.14, 0.56, 0.14);
+        armGeo.translate(0, -0.24, 0);
+
+        const leftArm = new THREE.Mesh(armGeo, cloakMat);
+        leftArm.position.set(-0.32, 1.4, 0);
+        leftArm.castShadow = true;
+        player.visualRoot.add(leftArm);
+        player.parts.leftArm = leftArm;
+
+        const rightArm = new THREE.Mesh(armGeo, cloakMat);
+        rightArm.position.set(0.32, 1.4, 0);
+        rightArm.castShadow = true;
+        player.visualRoot.add(rightArm);
+        player.parts.rightArm = rightArm;
+
+        // Wayfarer's Iron Lantern hanging from belt/back for subtle character silhouette visibility
+        const lantern = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.16, 6), MATS.emberGlow);
+        lantern.position.set(-0.24, 0.86, 0.16);
+        player.visualRoot.add(lantern);
+
+        const playerLight = new THREE.PointLight(0xd98a4e, 0.75, 6.5, 1.6);
+        playerLight.position.set(-0.24, 0.9, 0.25);
+        player.visualRoot.add(playerLight);
+
+        // Left & Right Legs + Boots (pivoted at hip)
+        function createLeg() {
+          const legPivot = new THREE.Group();
+          const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.44, 0.16), tunicMat);
+          thigh.position.y = -0.22;
+          thigh.castShadow = true;
+          legPivot.add(thigh);
+
+          const boot = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.36, 0.22), bootMat);
+          boot.position.set(0, -0.58, -0.02);
+          boot.castShadow = true;
+          legPivot.add(boot);
+          return legPivot;
+        }
+
+        const leftLeg = createLeg();
+        leftLeg.position.set(-0.13, 0.76, 0);
+        player.visualRoot.add(leftLeg);
+        player.parts.leftLeg = leftLeg;
+
+        const rightLeg = createLeg();
+        rightLeg.position.set(0.13, 0.76, 0);
+        player.visualRoot.add(rightLeg);
+        player.parts.rightLeg = rightLeg;
+
+        player.pos.y = getTerrainHeight(player.pos.x, player.pos.z);
+        player.group.position.copy(player.pos);
+        scene.add(player.group);
+      }
+
+      buildPlayerCharacter();
+
+      // ==========================================
+      // 8. THIRD-PERSON CAMERA SYSTEM
+      // ==========================================
+      const camRig = {
+        yaw: 0,           // Orbit angle around player
+        pitch: 0.32,      // Vertical pitch in radians
+        minPitch: -0.15,
+        maxPitch: 1.15,
+        targetDist: 5.4,
+        currentDist: 5.4,
+        minDist: 2.4,
+        maxDist: 9.5,
+        smoothTarget: new THREE.Vector3(0, 1.5, 2),
+        raycaster: new THREE.Raycaster()
+      };
+
+      const _idealOffset = new THREE.Vector3();
+      const _rayDir = new THREE.Vector3();
+      const _camPos = new THREE.Vector3();
+
+      function updateCamera(dt) {
+        // Target point slightly above player's shoulders
+        const desiredTargetX = player.pos.x;
+        const desiredTargetY = player.pos.y + 1.48;
+        const desiredTargetZ = player.pos.z;
+
+        const followRate = 1.0 - Math.exp(-14.0 * dt);
+        camRig.smoothTarget.x += (desiredTargetX - camRig.smoothTarget.x) * followRate;
+        camRig.smoothTarget.y += (desiredTargetY - camRig.smoothTarget.y) * followRate;
+        camRig.smoothTarget.z += (desiredTargetZ - camRig.smoothTarget.z) * followRate;
+
+        // Compute unit offset vector from spherical angles
+        const cosPitch = Math.cos(camRig.pitch);
+        _idealOffset.set(
+          Math.sin(camRig.yaw) * cosPitch,
+          Math.sin(camRig.pitch),
+          Math.cos(camRig.yaw) * cosPitch
+        );
+
+        // Raycast from player shoulder target toward ideal camera position to prevent wall clipping
+        _rayDir.copy(_idealOffset).normalize();
+        camRig.raycaster.set(camRig.smoothTarget, _rayDir);
+        camRig.raycaster.near = 0.2;
+        camRig.raycaster.far = camRig.targetDist + 0.5;
+
+        const hits = camRig.raycaster.intersectObjects(cameraBlockers, false);
+        let permittedDist = camRig.targetDist;
+        if (hits.length > 0) {
+          permittedDist = Math.max(0.85, hits[0].distance - 0.32);
+        }
+
+        // Pull in fast when obstructed, recover smoothly when clear
+        if (permittedDist < camRig.currentDist) {
+          camRig.currentDist += (permittedDist - camRig.currentDist) * (1.0 - Math.exp(-26.0 * dt));
+        } else {
+          camRig.currentDist += (permittedDist - camRig.currentDist) * (1.0 - Math.exp(-7.5 * dt));
+        }
+
+        _camPos.copy(camRig.smoothTarget).addScaledVector(_rayDir, camRig.currentDist);
+
+        // Ensure camera never dips beneath the terrain surface
+        const groundAtCam = getTerrainHeight(_camPos.x, _camPos.z) + 0.42;
+        if (_camPos.y < groundAtCam) {
+          _camPos.y = groundAtCam;
+        }
+
+        camera.position.copy(_camPos);
+        camera.lookAt(camRig.smoothTarget);
+      }
+
+      // ==========================================
+      // 9. PLAYER MOVEMENT, PHYSICS & ANIMATION
+      // ==========================================
+      const _forwardVec = new THREE.Vector3();
+      const _rightVec = new THREE.Vector3();
+      const _moveDir = new THREE.Vector3();
+
+      function normalizeAngle(a) {
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        return a;
+      }
+
+      function updatePlayer(dt, elapsed) {
+        const allowMove = STATE.mode === 'PLAYING';
+
+        // Camera horizontal forward & right vectors
+        _forwardVec.set(-Math.sin(camRig.yaw), 0, -Math.cos(camRig.yaw)).normalize();
+        _rightVec.set(Math.cos(camRig.yaw), 0, -Math.sin(camRig.yaw)).normalize();
+
+        _moveDir.set(0, 0, 0);
+        if (allowMove) {
+          if (INPUT.forward) _moveDir.add(_forwardVec);
+          if (INPUT.backward) _moveDir.sub(_forwardVec);
+          if (INPUT.right) _moveDir.add(_rightVec);
+          if (INPUT.left) _moveDir.sub(_rightVec);
+        }
+
+        const isMoving = _moveDir.lengthSq() > 0.001;
+        if (isMoving) _moveDir.normalize();
+
+        const walkSpeed = 4.6;
+        const sprintSpeed = 8.0;
+        const maxSpeed = INPUT.sprint ? sprintSpeed : walkSpeed;
+
+        const targetVx = _moveDir.x * maxSpeed;
+        const targetVz = _moveDir.z * maxSpeed;
+
+        const accel = player.onGround ? (isMoving ? 14.0 : 12.0) : 4.5;
+        const blend = 1.0 - Math.exp(-accel * dt);
+        player.vel.x += (targetVx - player.vel.x) * blend;
+        player.vel.z += (targetVz - player.vel.z) * blend;
+
+        // Jump & Gravity
+        if (allowMove && INPUT.jumpPressed && player.onGround) {
+          player.vel.y = 7.4;
+          player.onGround = false;
+        }
+        INPUT.jumpPressed = false;
+
+        const gravity = -19.5;
+        player.vel.y += gravity * dt;
+
+        // Integrate position
+        player.pos.x += player.vel.x * dt;
+        player.pos.z += player.vel.z * dt;
+        player.pos.y += player.vel.y * dt;
+
+        // Resolve environmental obstacle collisions (Circle colliders)
+        for (let i = 0; i < circleColliders.length; i++) {
+          const c = circleColliders[i];
+          const dx = player.pos.x - c.x;
+          const dz = player.pos.z - c.z;
+          const minDist = player.radius + c.r;
+          const distSq = dx * dx + dz * dz;
+          if (distSq < minDist * minDist && distSq > 0.00001) {
+            const dist = Math.sqrt(distSq);
+            const overlap = minDist - dist;
+            const nx = dx / dist;
+            const nz = dz / dist;
+            player.pos.x += nx * overlap;
+            player.pos.z += nz * overlap;
+          }
+        }
+
+        // Keep player within the explorable valley bounds
+        player.pos.x = THREE.MathUtils.clamp(player.pos.x, -68, 68);
+        player.pos.z = THREE.MathUtils.clamp(player.pos.z, -74.5, 34);
+
+        // Ground height detection
+        const groundY = getTerrainHeight(player.pos.x, player.pos.z);
+        if (player.pos.y <= groundY) {
+          player.pos.y = groundY;
+          player.vel.y = 0;
+          player.onGround = true;
+        } else {
+          player.onGround = false;
+        }
+
+        // Smooth character rotation toward movement direction
+        const horizSpeed = Math.hypot(player.vel.x, player.vel.z);
+        if (horizSpeed > 0.25) {
+          const desiredYaw = Math.atan2(player.vel.x, player.vel.z);
+          const diff = normalizeAngle(desiredYaw - player.yaw);
+          player.yaw += diff * (1.0 - Math.exp(-12.0 * dt));
+        }
+
+        player.group.position.copy(player.pos);
+        player.group.rotation.y = player.yaw;
+
+        // Procedural Limb & Torso Animation
+        const p = player.parts;
+        if (!player.onGround) {
+          // Jumping / Airborne pose
+          p.leftLeg.rotation.x = THREE.MathUtils.lerp(p.leftLeg.rotation.x, 0.45, dt * 10);
+          p.rightLeg.rotation.x = THREE.MathUtils.lerp(p.rightLeg.rotation.x, -0.35, dt * 10);
+          p.leftArm.rotation.x = THREE.MathUtils.lerp(p.leftArm.rotation.x, -0.5, dt * 10);
+          p.rightArm.rotation.x = THREE.MathUtils.lerp(p.rightArm.rotation.x, -0.5, dt * 10);
+          p.cloak.rotation.x = THREE.MathUtils.lerp(p.cloak.rotation.x, 0.35, dt * 8);
+        } else if (horizSpeed > 0.2) {
+          // Walking / Sprinting cycle
+          const speedRatio = horizSpeed / walkSpeed;
+          player.walkCycle += dt * horizSpeed * 2.55;
+          const swingAmp = Math.min(0.85, 0.42 * speedRatio);
+
+          p.leftLeg.rotation.x = Math.sin(player.walkCycle) * swingAmp;
+          p.rightLeg.rotation.x = -Math.sin(player.walkCycle) * swingAmp;
+          p.leftArm.rotation.x = -Math.sin(player.walkCycle) * swingAmp * 0.75;
+          p.rightArm.rotation.x = Math.sin(player.walkCycle) * swingAmp * 0.75;
+
+          // Subtle vertical bob and forward lean
+          player.visualRoot.position.y = Math.abs(Math.cos(player.walkCycle)) * 0.055 * Math.min(1.4, speedRatio);
+          player.visualRoot.rotation.x = THREE.MathUtils.lerp(player.visualRoot.rotation.x, 0.05 * speedRatio, dt * 8);
+          p.cloak.rotation.x = 0.12 + 0.14 * Math.min(1.5, speedRatio) + Math.sin(player.walkCycle * 2) * 0.04;
+        } else {
+          // Idle breathing state
+          p.leftLeg.rotation.x = THREE.MathUtils.lerp(p.leftLeg.rotation.x, 0, dt * 8);
+          p.rightLeg.rotation.x = THREE.MathUtils.lerp(p.rightLeg.rotation.x, 0, dt * 8);
+          p.leftArm.rotation.x = THREE.MathUtils.lerp(p.leftArm.rotation.x, Math.sin(elapsed * 1.8) * 0.03, dt * 6);
+          p.rightArm.rotation.x = THREE.MathUtils.lerp(p.rightArm.rotation.x, -Math.sin(elapsed * 1.8) * 0.03, dt * 6);
+          player.visualRoot.position.y = Math.sin(elapsed * 2.1) * 0.015;
+          player.visualRoot.rotation.x = THREE.MathUtils.lerp(player.visualRoot.rotation.x, 0, dt * 8);
+          p.cloak.rotation.x = THREE.MathUtils.lerp(p.cloak.rotation.x, 0.08, dt * 6);
+        }
+      }
+
+      // ==========================================
+      // 10. ZONE DETECTION & INTERACTION LOGIC
+      // ==========================================
+      let toastTimeout = null;
+
+      function triggerZoneBanner(zoneTitle, zoneSubtitle) {
+        if (STATE.currentZone === zoneTitle) return;
+        STATE.currentZone = zoneTitle;
+        hudZoneNameEl.textContent = zoneTitle;
+        toastTitleEl.textContent = zoneTitle;
+        toastSubEl.textContent = zoneSubtitle;
+        areaToastEl.classList.add('visible');
+
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          areaToastEl.classList.remove('visible');
+        }, 3400);
+      }
+
+      function updateWorldAndZones(dt, elapsed) {
+        // 1. Update Zone Banner based on player coordinates
+        const px = player.pos.x;
+        const pz = player.pos.z;
+        if (Math.hypot(px, pz) < 15) {
+          triggerZoneBanner('Forsaken Courtyard', 'Remnants of the Outer Watch');
+        } else if (Math.hypot(px - 28, pz + 28) < 16) {
+          triggerZoneBanner('Altar of the Veil', 'Sanctum of Cold Embers');
+        } else if (Math.hypot(px + 30, pz + 34) < 15) {
+          triggerZoneBanner('Sunken Watchtower', 'Bastion of the Silent Bell');
+        } else if (pz < -58) {
+          triggerZoneBanner('Oakhaven Citadel Approach', 'The Sealed Threshold');
+        } else {
+          triggerZoneBanner('The Whispering Boughs', 'Deadwood of the Old Road');
+        }
+
+        // 2. Check proximity to Interactables
+        let nearest = null;
+        let minDist = Infinity;
+        for (let i = 0; i < interactables.length; i++) {
+          const item = interactables[i];
+          // Rotate floating relic crystal
+          item.relicMesh.rotation.y = elapsed * 1.1 + i;
+          item.relicMesh.position.y = 1.75 + Math.sin(elapsed * 2.2 + i) * 0.1;
+          item.ringMesh.rotation.x = elapsed * 0.7 + i;
+          item.ringMesh.rotation.y = elapsed * 0.5;
+
+          const d = player.pos.distanceTo(item.pos);
+          if (d < item.radius && d < minDist) {
+            minDist = d;
+            nearest = item;
+          }
+        }
+
+        STATE.activeInteractable = nearest;
+        if (STATE.mode === 'PLAYING' && nearest) {
+          promptObjectNameEl.textContent = nearest.name;
+          interactionPromptEl.classList.add('visible');
+        } else {
+          interactionPromptEl.classList.remove('visible');
+        }
+
+        // 3. Flicker Braziers
+        for (let i = 0; i < flickeringLights.length; i++) {
+          const fl = flickeringLights[i];
+          const wave = Math.sin(elapsed * fl.speed + fl.phase) * 0.25 +
+                       Math.cos(elapsed * (fl.speed * 1.7) + fl.phase) * 0.15;
+          fl.light.intensity = fl.baseIntensity + wave;
+          const s = 0.92 + wave * 0.22;
+          fl.mesh.scale.set(s, 1.0 + wave * 0.35, s);
+          fl.mesh.rotation.y = elapsed * 1.5 + fl.phase;
+        }
+
+        // 4. Update Floating Ash Particles around player
+        const posArr = particleGeo.attributes.position.array;
+        for (let i = 0; i < particleCount; i++) {
+          const ix = i * 3;
+          const iy = i * 3 + 1;
+          const iz = i * 3 + 2;
+
+          posArr[iy] -= pSpeeds[i] * dt * 0.65;
+          posArr[ix] += Math.sin(elapsed * 0.5 + i) * dt * 0.35;
+
+          // Wrap particles relative to player so ash is always present
+          if (posArr[iy] < player.pos.y - 1.0) {
+            posArr[iy] = player.pos.y + 16.0 + Math.random() * 6.0;
+            posArr[ix] = player.pos.x + (Math.random() - 0.5) * 75;
+            posArr[iz] = player.pos.z + (Math.random() - 0.5) * 75;
+          }
+        }
+        particleGeo.attributes.position.needsUpdate = true;
+
+        // Keep sky dome centered on camera
+        skyDome.position.copy(camera.position);
+      }
+
+      // ==========================================
+      // 11. UI, MENUS & INPUT HANDLERS
+      // ==========================================
+      function clearMovementInputs() {
+        INPUT.forward = false;
+        INPUT.backward = false;
+        INPUT.left = false;
+        INPUT.right = false;
+        INPUT.sprint = false;
+        INPUT.jumpPressed = false;
+        INPUT.isDraggingMouse = false;
+      }
+
+      function requestGamePointerLock() {
+        try {
+          if (renderer && renderer.domElement && renderer.domElement.requestPointerLock) {
+            renderer.domElement.requestPointerLock();
+          }
+        } catch (_) {
+          // Fallback to drag rotation if pointer lock is disallowed
+        }
+      }
+
+      function exitGamePointerLock() {
+        try {
+          if (document.pointerLockElement) {
+            document.exitPointerLock();
+          }
+        } catch (_) {}
+      }
+
+      function setGameMode(newMode) {
+        STATE.mode = newMode;
+        clearMovementInputs();
+
+        mainMenuEl.classList.toggle('hidden', newMode !== 'MAIN_MENU');
+        pauseMenuEl.classList.toggle('hidden', newMode !== 'PAUSED');
+        dialogueModalEl.classList.toggle('hidden', newMode !== 'DIALOGUE');
+
+        if (newMode === 'PLAYING') {
+          requestGamePointerLock();
+        } else {
+          exitGamePointerLock();
+          interactionPromptEl.classList.remove('visible');
+        }
+      }
+
+      function openInteractableDialogue(item) {
+        if (!item) return;
+        dialogueTitleEl.textContent = item.title;
+        dialogueTextEl.textContent = item.text;
+
+        if (!STATE.discoveredIds.has(item.id)) {
+          STATE.discoveredIds.add(item.id);
+          hudRelicCounterEl.textContent = `Echoes Remembered: ${STATE.discoveredIds.size} / ${STATE.totalRelics}`;
+        }
+        setGameMode('DIALOGUE');
+      }
+
+      function resetPlayerToCourtyard() {
+        player.pos.set(0, getTerrainHeight(0, 2), 2);
+        player.vel.set(0, 0, 0);
+        player.yaw = Math.PI;
+        camRig.yaw = 0;
+        camRig.pitch = 0.32;
+        setGameMode('PLAYING');
+      }
+
+      // Menu Button Listeners
+      document.getElementById('btn-start-journey').addEventListener('click', () => {
+        setGameMode('PLAYING');
+      });
+
+      document.getElementById('btn-resume').addEventListener('click', () => {
+        setGameMode('PLAYING');
+      });
+
+      document.getElementById('btn-restart').addEventListener('click', () => {
+        resetPlayerToCourtyard();
+      });
+
+      document.getElementById('btn-main-menu').addEventListener('click', () => {
+        setGameMode('MAIN_MENU');
+      });
+
+      document.getElementById('close-dialogue-btn').addEventListener('click', () => {
+        setGameMode('PLAYING');
+      });
+
+      // Sensitivity Sliders
+      function syncSensitivity(val) {
+        STATE.sensitivity = parseFloat(val) || 1.0;
+        sensSlider1.value = STATE.sensitivity;
+        sensSlider2.value = STATE.sensitivity;
+      }
+      sensSlider1.addEventListener('input', e => syncSensitivity(e.target.value));
+      sensSlider2.addEventListener('input', e => syncSensitivity(e.target.value));
+
+      // Click on canvas during gameplay re-locks pointer or allows drag orbit
+      renderer.domElement.addEventListener('mousedown', e => {
+        if (STATE.mode !== 'PLAYING') return;
+        if (document.pointerLockElement !== renderer.domElement) {
+          requestGamePointerLock();
+          INPUT.isDraggingMouse = true;
+          INPUT.prevMouseX = e.clientX;
+          INPUT.prevMouseY = e.clientY;
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        INPUT.isDraggingMouse = false;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (STATE.mode !== 'PLAYING') return;
+        const rotScale = 0.0024 * STATE.sensitivity;
+
+        if (document.pointerLockElement === renderer.domElement) {
+          camRig.yaw -= e.movementX * rotScale;
+          camRig.pitch = THREE.MathUtils.clamp(
+            camRig.pitch + e.movementY * rotScale,
+            camRig.minPitch,
+            camRig.maxPitch
+          );
+        } else if (INPUT.isDraggingMouse) {
+          const dx = e.clientX - INPUT.prevMouseX;
+          const dy = e.clientY - INPUT.prevMouseY;
+          INPUT.prevMouseX = e.clientX;
+          INPUT.prevMouseY = e.clientY;
+          camRig.yaw -= dx * rotScale * 1.4;
+          camRig.pitch = THREE.MathUtils.clamp(
+            camRig.pitch + dy * rotScale * 1.4,
+            camRig.minPitch,
+            camRig.maxPitch
+          );
+        }
+      });
+
+      window.addEventListener('wheel', e => {
+        if (STATE.mode !== 'PLAYING') return;
+        camRig.targetDist = THREE.MathUtils.clamp(
+          camRig.targetDist + e.deltaY * 0.0045,
+          camRig.minDist,
+          camRig.maxDist
+        );
+      }, { passive: true });
+
+      // Keyboard Controls
+      window.addEventListener('keydown', e => {
+        const code = e.code;
+
+        if (code === 'Escape') {
+          if (STATE.mode === 'DIALOGUE') {
+            setGameMode('PLAYING');
+          } else if (STATE.mode === 'PLAYING') {
+            setGameMode('PAUSED');
+          } else if (STATE.mode === 'PAUSED') {
+            setGameMode('PLAYING');
+          }
+          return;
+        }
+
+        if (code === 'KeyE') {
+          if (STATE.mode === 'PLAYING' && STATE.activeInteractable) {
+            openInteractableDialogue(STATE.activeInteractable);
+            return;
+          } else if (STATE.mode === 'DIALOGUE') {
+            setGameMode('PLAYING');
+            return;
+          }
+        }
+
+        if (STATE.mode !== 'PLAYING') return;
+
+        switch (code) {
+          case 'KeyW':
+          case 'ArrowUp':
+            INPUT.forward = true;
+            break;
+          case 'KeyS':
+          case 'ArrowDown':
+            INPUT.backward = true;
+            break;
+          case 'KeyA':
+          case 'ArrowLeft':
+            INPUT.left = true;
+            break;
+          case 'KeyD':
+          case 'ArrowRight':
+            INPUT.right = true;
+            break;
+          case 'ShiftLeft':
+          case 'ShiftRight':
+            INPUT.sprint = true;
+            break;
+          case 'Space':
+            INPUT.jumpPressed = true;
+            break;
+        }
+      });
+
+      window.addEventListener('keyup', e => {
+        switch (e.code) {
+          case 'KeyW':
+          case 'ArrowUp':
+            INPUT.forward = false;
+            break;
+          case 'KeyS':
+          case 'ArrowDown':
+            INPUT.backward = false;
+            break;
+          case 'KeyA':
+          case 'ArrowLeft':
+            INPUT.left = false;
+            break;
+          case 'KeyD':
+          case 'ArrowRight':
+            INPUT.right = false;
+            break;
+          case 'ShiftLeft':
+          case 'ShiftRight':
+            INPUT.sprint = false;
+            break;
+        }
+      });
+
+      // Prevent stuck keys when window loses focus
+      window.addEventListener('blur', () => {
+        clearMovementInputs();
+      });
+
+      // Responsive Resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // ==========================================
+      // 12. MAIN GAME LOOP
+      // ==========================================
+      const clock = new THREE.Clock();
+      let elapsedTotal = 0;
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Clamp delta time to prevent large physics jumps on tab switch
+        const dt = Math.min(clock.getDelta(), 0.1);
+        elapsedTotal += dt;
+
+        // Rotate camera gently around the courtyard while on the Main Menu
+        if (STATE.mode === 'MAIN_MENU') {
+          camRig.yaw = elapsedTotal * 0.12;
+          camRig.pitch = 0.28;
+        }
+
+        updatePlayer(dt, elapsedTotal);
+        updateCamera(dt);
+        updateWorldAndZones(dt, elapsedTotal);
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    })();
+  </script>
+</body>
+</html>

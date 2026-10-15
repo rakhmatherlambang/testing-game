@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Senja di Halte Terakhir - Anime Slice of Life</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #0d0814;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .serif-title {
+            font-family: 'Playfair Display', serif;
+        }
+        /* Custom glassmorphism for UI */
+        .glass-panel {
+            background: rgba(20, 14, 28, 0.78);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 165, 110, 0.3);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+        }
+        .warm-glow:hover {
+            box-shadow: 0 0 15px rgba(255, 150, 90, 0.45);
+            border-color: rgba(255, 180, 120, 0.65);
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.9; transform: translateY(0px); }
+            50% { opacity: 0.45; transform: translateY(-3px); }
+        }
+        .animate-float {
+            animation: pulse-slow 2.2s infinite ease-in-out;
+        }
+        /* Flash effect for camera */
+        #camera-flash {
+            pointer-events: none;
+            transition: opacity 0.6s ease-out;
+        }
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.15);
+            height: 6px;
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ff9e64;
+            cursor: pointer;
+            box-shadow: 0 0 8px #ff7e47;
+        }
+    </style>
+</head>
+<body class="relative text-amber-50">
+
+    <!-- Main Fullscreen Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Camera Flash Overlay -->
+    <div id="camera-flash" class="fixed inset-0 bg-amber-100 opacity-0 z-40"></div>
+
+    <!-- Viewfinder Overlay (Shown when in Photo Mode or briefly) -->
+    <div id="viewfinder" class="fixed inset-6 border-2 border-amber-200/30 pointer-events-none hidden z-30 rounded-lg">
+        <div class="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-amber-300"></div>
+        <div class="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-amber-300"></div>
+        <div class="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-amber-300"></div>
+        <div class="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-amber-300"></div>
+        <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-6 h-6 border border-amber-300/60 rounded-full flex items-center justify-center">
+                <div class="w-1 h-1 bg-amber-300 rounded-full"></div>
+            </div>
+        </div>
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 px-3 py-1 rounded text-xs tracking-widest text-amber-200 uppercase">
+            REC • ISO 400 • 1/60
+        </div>
+    </div>
+
+    <!-- Top Left HUD: Title, Clock, Inventory & Location -->
+    <div class="fixed top-4 left-4 z-20 flex flex-col gap-2 max-w-xs sm:max-w-md pointer-events-auto">
+        <div class="glass-panel px-4 py-3 rounded-2xl flex items-center gap-4">
+            <div>
+                <h1 class="serif-title text-lg sm:text-xl font-semibold text-amber-200 tracking-wide leading-tight">Senja di Halte Terakhir</h1>
+                <p id="location-label" class="text-xs text-amber-300/80 flex items-center gap-1.5 mt-0.5">
+                    <span class="inline-block w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
+                    <span>Distrik Pinggir Kota • Stasiun Lama</span>
+                </p>
+            </div>
+            <div class="border-l border-amber-200/20 pl-4 text-right">
+                <div id="clock-display" class="text-xl sm:text-2xl font-bold text-orange-300 font-mono tracking-tight">17:20</div>
+                <div id="sky-phase-label" class="text-[10px] uppercase tracking-widest text-amber-200/60">Golden Hour</div>
+            </div>
+        </div>
+
+        <!-- Mini Status Pills (Coffee & Photos) -->
+        <div class="flex flex-wrap gap-2">
+            <button onclick="toggleAlbumModal()" class="glass-panel warm-glow px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 transition">
+                <span>📷</span>
+                <span>Foto Senja: <strong id="photo-count" class="text-orange-300">0/5</strong></span>
+            </button>
+            <div id="coffee-badge" class="glass-panel px-3 py-1.5 rounded-xl text-xs hidden items-center gap-1.5 text-amber-200">
+                <span>🥫</span>
+                <span>Kopi Kaleng Hangat</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Right HUD: Time Slider & Audio Controls -->
+    <div class="fixed top-4 right-4 z-20 flex flex-col items-end gap-2 pointer-events-auto">
+        <div class="glass-panel px-3.5 py-2.5 rounded-2xl flex items-center gap-3">
+            <!-- Sunset Time Slider -->
+            <div class="hidden sm:flex flex-col gap-1 w-32">
+                <div class="flex justify-between text-[10px] text-amber-200/80">
+                    <span>Sore</span>
+                    <span>Maghrib</span>
+                </div>
+                <input id="sunset-slider" type="range" min="0" max="1" step="0.005" value="0.18" title="Atur Waktu Senja">
+            </div>
+
+            <!-- Snap Photo Button -->
+            <button onclick="takeSnapshot()" class="p-2 rounded-xl bg-amber-500/20 border border-amber-400/40 hover:bg-amber-500/35 text-amber-200 transition flex items-center gap-1.5 text-xs font-medium" title="Potret Senja [F]">
+                <span>📸</span>
+                <span class="hidden md:inline">Potret [F]</span>
+            </button>
+
+            <!-- Audio Toggle Button -->
+            <button id="audio-btn" onclick="toggleAudio()" class="p-2 rounded-xl bg-amber-500/10 border border-amber-300/20 hover:bg-amber-500/25 text-amber-200 transition flex items-center gap-1.5 text-xs" title="Suara Atmosfer & Lo-Fi">
+                <span id="audio-icon">🔇</span>
+                <span id="audio-text" class="hidden md:inline">Suara: Mati</span>
+            </button>
+        </div>
+
+        <!-- Controls Hint Pill -->
+        <div class="glass-panel px-3 py-1.5 rounded-xl text-[11px] text-amber-100/75 hidden sm:block">
+            <span class="text-orange-300 font-semibold">[A / D]</span> atau <span class="text-orange-300 font-semibold">[◀ / ▶]</span> Jalan &nbsp;•&nbsp;
+            <span class="text-orange-300 font-semibold">[Shift]</span> Lari Kecil &nbsp;•&nbsp;
+            <span class="text-orange-300 font-semibold">[E / Spasi]</span> Interaksi &nbsp;•&nbsp;
+            <span class="text-orange-300 font-semibold">[F]</span> Kamera
+        </div>
+    </div>
+
+    <!-- Interactive Dialogue Box (Appears at bottom when talking/inspecting) -->
+    <div id="dialogue-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[94vw] max-w-2xl z-30 hidden pointer-events-auto">
+        <div class="glass-panel rounded-2xl p-5 sm:p-6 border border-orange-300/40 relative">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2.5">
+                    <span id="dialogue-badge" class="px-2.5 py-0.5 rounded-md bg-orange-500/30 border border-orange-400/50 text-orange-200 font-semibold text-xs tracking-wider uppercase">
+                        SORA
+                    </span>
+                    <span id="dialogue-subtitle" class="text-xs text-amber-200/60 italic"></span>
+                </div>
+                <button onclick="closeDialogue()" class="text-xs text-amber-200/60 hover:text-amber-100 px-2 py-0.5 rounded">
+                    [Tutup • ESC]
+                </button>
+            </div>
+
+            <p id="dialogue-text" class="text-sm sm:text-base text-amber-50 leading-relaxed min-h-[3rem]"></p>
+
+            <!-- Dialogue Choices or Next Button -->
+            <div id="dialogue-choices" class="mt-3 flex flex-wrap gap-2"></div>
+
+            <div class="mt-3 flex justify-between items-center border-t border-amber-200/10 pt-2.5">
+                <span class="text-[11px] text-amber-200/50">Tekan [E], [Spasi], atau klik Lanjut</span>
+                <button id="dialogue-next-btn" onclick="advanceDialogue()" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-semibold text-xs hover:brightness-110 transition shadow-md">
+                    Lanjut ▸
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile / Touch On-Screen Controls -->
+    <div id="touch-controls" class="fixed bottom-5 inset-x-4 z-20 flex justify-between items-end pointer-events-none sm:opacity-75 hover:opacity-100 transition">
+        <!-- Left/Right Movement Buttons -->
+        <div class="flex gap-2.5 pointer-events-auto">
+            <button id="btn-left" class="glass-panel active:scale-95 w-12 h-12 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg text-amber-200 shadow-lg">
+                ◀
+            </button>
+            <button id="btn-right" class="glass-panel active:scale-95 w-12 h-12 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg text-amber-200 shadow-lg">
+                ▶
+            </button>
+        </div>
+
+        <!-- Action & Sprint Buttons -->
+        <div class="flex gap-2.5 pointer-events-auto">
+            <button id="btn-interact" onclick="triggerNearestInteraction()" class="glass-panel warm-glow active:scale-95 px-4 h-12 sm:h-11 rounded-2xl flex items-center gap-2 text-xs sm:text-sm font-semibold text-orange-200 shadow-lg">
+                <span>💬</span>
+                <span id="interact-btn-label">Interaksi [E]</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Photo Album Modal -->
+    <div id="album-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden items-center justify-center p-4">
+        <div class="glass-panel rounded-3xl max-w-2xl w-full p-6 border border-amber-300/30">
+            <div class="flex justify-between items-center border-b border-amber-200/15 pb-3 mb-4">
+                <div>
+                    <h2 class="serif-title text-xl text-amber-200">Album Kenangan Senja</h2>
+                    <p class="text-xs text-amber-200/70">Potret momen-momen tenang di sepanjang jalan sebelum matahari benar-benar tenggelam.</p>
+                </div>
+                <button onclick="toggleAlbumModal()" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs">Tutup ✕</button>
+            </div>
+            <div id="album-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-40 glass-panel px-4 py-2 rounded-full text-xs text-amber-200 border border-orange-400/50 opacity-0 pointer-events-none transition-all duration-300 transform -translate-y-2">
+        📸 Foto tersimpan ke album!
+    </div>
+
+    <script>
+        // ============================================================================
+        // 1. KONFIGURASI DUNIA & STATE GAME
+        // ============================================================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const WORLD_WIDTH = 3400;
+        const GROUND_OFFSET = 115; // Jarak jalan dari bawah layar
+
+        const state = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            groundY: window.innerHeight - GROUND_OFFSET,
+            cameraX: 350,
+            sunsetProgress: 0.18, // 0.0 (17:10 Sore Cerah) -> 1.0 (18:20 Maghrib/Ungu Tua)
+            autoTimeSpeed: 0.00012,
+            hasCoffee: false,
+            catPetted: 0,
+            radioSongIndex: 0,
+            photos: [],
+            capturedSpotIds: new Set(),
+            dialogueActive: false,
+            currentDialogue: null,
+            dialogueStep: 0,
+            nearestInteractable: null,
+            timeTick: 0
+        };
+
+        // Karakter Utama: Sora (Mahasiswa/Remaja dengan syal tipis yang tertiup angin sore)
+        const player = {
+            x: 820,
+            width: 32,
+            height: 82,
+            vx: 0,
+            walkSpeed: 3.1,
+            runSpeed: 5.4,
+            facing: 1, // 1 = kanan, -1 = kiri
+            walkCycle: 0,
+            isMoving: false,
+            isRunning: false,
+            scarfWave: 0
+        };
+
+        // Input Keyboard & Sentuh
+        const keys = {
+            left: false,
+            right: false,
+            shift: false
+        };
+
+        // ============================================================================
+        // 2. DATA INTERAKSI DUNIA (NPC, OBJEK, SPOT FOTO)
+        // ============================================================================
+        const interactables = [
+            {
+                id: 'home_bench',
+                x: 280,
+                radius: 90,
+                label: 'Bangku Taman Kecil',
+                type: 'object',
+                prompt: 'Duduk & Renungkan [E]',
+                onInteract: () => startDialogue('Bangku Taman', 'Tempat Istirahat', [
+                    { speaker: 'SORA', text: 'Dulu waktu masih sekolah, aku sering duduk di bangku ini sambil makan roti bakar sebelum pulang.' },
+                    { speaker: 'SORA', text: 'Sekarang rasanya waktu berjalan jauh lebih cepat. Sebentar lagi semester akhir selesai...' }
+                ], 0.04)
+            },
+            {
+                id: 'vending_machine',
+                x: 680,
+                radius: 85,
+                label: 'Mesin Minuman Otomatis',
+                type: 'vending',
+                prompt: 'Beli Kopi Hangat [E]',
+                onInteract: () => {
+                    if (!state.hasCoffee) {
+                        startDialogue('Mesin Otomatis', 'Cahaya Hangat di Sudut Jalan', [
+                            { speaker: 'SISTEM', text: '*Kling! Klotak!* — Sebotol kopi susu kaleng hangat jatuh ke loket pengambilan.' },
+                            { speaker: 'SORA', text: 'Lumayan hangat di tangan. Mungkin Nadia di halte juga suka kalau dibawakan satu.' }
+                        ], 0.04, () => {
+                            state.hasCoffee = true;
+                            document.getElementById('coffee-badge').classList.remove('hidden');
+                            document.getElementById('coffee-badge').classList.add('flex');
+                            playSfx('coin');
+                            showToast('🥫 Mendapatkan Kopi Kaleng Hangat!');
+                        });
+                    } else {
+                        startDialogue('Mesin Otomatis', 'Cahaya Hangat di Sudut Jalan', [
+                            { speaker: 'SORA', text: 'Kopi kaleng di sakuku masih hangat. Dengungan mesin ini entah kenapa bikin tenang saat sore.' }
+                        ], 0.02);
+                    }
+                }
+            },
+            {
+                id: 'stray_cat',
+                x: 1030,
+                radius: 80,
+                label: 'Mochi si Kucing Oren',
+                type: 'cat',
+                prompt: 'Elus Kucing [E]',
+                onInteract: () => {
+                    state.catPetted++;
+                    playSfx('purr');
+                    startDialogue('Mochi', 'Kucing Penguasa Tembok', [
+                        { speaker: 'MOCHI', text: 'Mrrrow~ (Mendengkur pelan sambil menyipitkan mata ke arah matahari terbenam).' },
+                        { speaker: 'SORA', text: state.catPetted === 1 
+                            ? 'Bulunya hangat karena seharian berjemur di atas tembok bata.' 
+                            : 'Dia kelihatan nyaman sekali. Enak ya jadi kucing sore-sore begini.' }
+                    ], 0.03);
+                }
+            },
+            {
+                id: 'nadia_bus_stop',
+                x: 1380,
+                radius: 105,
+                label: 'Nadia di Halte Bus',
+                type: 'npc',
+                prompt: 'Sapa Nadia [E]',
+                onInteract: () => {
+                    if (state.hasCoffee) {
+                        startDialogue('Nadia', 'Teman Sekelas • Menunggu Bus Terakhir', [
+                            { speaker: 'NADIA', text: 'Eh, Sora? Kamu bawa kopi kaleng hangat dari mesin dekat tikungan itu ya?' },
+                            { speaker: 'SORA', text: 'Iya, kebetulan aku beli dua. Ambil saja satu, angin sore ini lumayan dingin.' },
+                            { speaker: 'NADIA', text: 'Wah, makasih banyak! Hangat banget... Rasanya gak ingin busnya cepat datang kalau langitnya sebagus ini.' },
+                            { speaker: 'NADIA', text: 'Ngomong-ngomong, coba deh jalan agak ke kanan ke arah perlintasan kereta. Dari sana siluet senjanya bagus banget buat difoto.' }
+                        ], 0.07);
+                    } else {
+                        startDialogue('Nadia', 'Teman Sekelas • Menunggu Bus Terakhir', [
+                            { speaker: 'NADIA', text: 'Halo, Sora. Kamu belum pulang juga?' },
+                            { speaker: 'SORA', text: 'Belum, lagi pengen jalan santai sebentar. Bus jurusan pusat kota belum lewat?' },
+                            { speaker: 'NADIA', text: 'Biasanya lewat sekitar jam setengah enam. Tapi sambil nunggu, enak juga dengerin suara angin sore di sini.' },
+                            { speaker: 'NADIA', text: '(Nadia meniup kedua telapak tangannya yang agak dingin. Sepertinya minuman hangat dari mesin otomatis di sebelah kiri bakal cocok.)' }
+                        ], 0.05);
+                    }
+                }
+            },
+            {
+                id: 'railroad_crossing',
+                x: 1980,
+                radius: 110,
+                label: 'Perlintasan Kereta Senja',
+                type: 'crossing',
+                prompt: 'Amati Perlintasan [E]',
+                onInteract: () => {
+                    triggerTrainPass();
+                    startDialogue('Perlintasan Kereta', 'Jalur Komuter Pinggir Kota', [
+                        { speaker: 'SORA', text: '*Ting... শব্দের... Ting...* Palang kereta mulai berdenting.' },
+                        { speaker: 'SORA', text: 'Setiap kali kereta komuter sore lewat dengan jendela yang menyala keemasan, rasanya seperti melihat potongan cerita orang banyak yang sedang pulang ke rumah.' }
+                    ], 0.05);
+                }
+            },
+            {
+                id: 'warung_kopi',
+                x: 2560,
+                radius: 110,
+                label: 'Kedai Kopi "Lentera Sore"',
+                type: 'shop',
+                prompt: 'Singgah di Kedai [E]',
+                onInteract: () => {
+                    state.radioSongIndex = (state.radioSongIndex + 1) % 3;
+                    const tunes = ['Melodi Akustik Sore', 'Senandung Hujan Kemarin', 'Bintang Pertama di Ufuk Barat'];
+                    startDialogue('Pak Raka (Pemilik Kedai)', 'Kedai Kopi & Radio Tua', [
+                        { speaker: 'PAK RAKA', text: 'Sore, Nak Sora. Lentera kedai baru saja Bapak nyalakan.' },
+                        { speaker: 'PAK RAKA', text: `Radio tua ini lagi memutar lagu "${tunes[state.radioSongIndex]}". Duduklah sebentar kalau capek jalan.` },
+                        { speaker: 'SORA', text: 'Aroma seduhan kopi dan kayu manis dari kedai Bapak selalu bikin betah.' }
+                    ], 0.05);
+                }
+            },
+            {
+                id: 'scenic_overlook',
+                x: 3120,
+                radius: 115,
+                label: 'Pagar Pembatas Bukit Senja',
+                type: 'overlook',
+                prompt: 'Pandangi Ufuk Barat [E]',
+                onInteract: () => {
+                    startDialogue('Anjungan Bukit', 'Ujung Jalan Pinggir Kota', [
+                        { speaker: 'SORA', text: 'Dari ujung pagar ini, seluruh atap kota, kabel listrik yang bersilangan, dan matahari terbenam terlihat jelas.' },
+                        { speaker: 'SORA', text: 'Momen singkat antara sore dan malam... Besok pasti akan jadi hari yang baru lagi. (Tekan [F] untuk memotret pemandangan ini!)' }
+                    ], 0.06);
+                }
+            }
+        ];
+
+        // Daftar Spot Foto Spesial
+        const photoSpots = [
+            { id: 'spot_vending', x: 680, title: 'Cahaya Mesin Penjual Otomatis', desc: 'Pendar lampu hangat di bawah bayangan tiang listrik.' },
+            { id: 'spot_cat', x: 1030, title: 'Siluet Kucing di Atas Tembok', desc: 'Mochi si kucing oren menikmati sisa hangat matahari.' },
+            { id: 'spot_halte', x: 1380, title: 'Menunggu Bus Terakhir', desc: 'Nadia berdiri di halte kayu di bawah langit jingga.' },
+            { id: 'spot_train', x: 1980, title: 'Lintasan Kereta Komuter', desc: 'Kabel listrik dan palang kereta membelah cakrawala.' },
+            { id: 'spot_hill', x: 3120, title: 'Ufuk Barat dari Pagar Bukit', desc: 'Matahari perlahan tenggelam di balik siluet pegunungan.' }
+        ];
+
+        // ============================================================================
+        // 3. ELEMEN ATMOSFER (KERETA, BURUNG, PARTIKEL DEBU CAHAYA, BINTANG)
+        // ============================================================================
+        const train = {
+            x: -900,
+            speed: 9.5,
+            active: false,
+            timer: 180,
+            cars: 4
+        };
+
+        function triggerTrainPass() {
+            if (!train.active) {
+                train.active = true;
+                train.x = -900;
+            }
+        }
+
+        // Partikel debu keemasan yang melayang tertiup angin sore
+        const dustParticles = Array.from({ length: 65 }, () => ({
+            x: Math.random() * WORLD_WIDTH,
+            y: Math.random() * 600,
+            r: Math.random() * 2.4 + 0.8,
+            vx: -(Math.random() * 0.45 + 0.15),
+            vy: -(Math.random() * 0.25 - 0.1),
+            alpha: Math.random() * 0.65 + 0.2,
+            phase: Math.random() * Math.PI * 2
+        }));
+
+        // Kawanan burung terbang pulang
+        const flocks = [
+            { x: 1800, y: 170, speed: 1.1, count: 5 },
+            { x: 2900, y: 125, speed: 0.85, count: 4 }
+        ];
+
+        // Bintang yang muncul saat langit mulai maghrib
+        const stars = Array.from({ length: 70 }, () => ({
+            x: Math.random() * 2000,
+            y: Math.random() * 280,
+            size: Math.random() * 1.8 + 0.6,
+            twinkle: Math.random() * Math.PI * 2
+        }));
+
+        // Posisi Tiang Listrik sepanjang jalan (khas anime slice of life)
+        const utilityPoles = [220, 620, 1080, 1540, 1920, 2380, 2820, 3260];
+
+        // ============================================================================
+        // 4. WEB AUDIO API - GENERATOR SUARA ATMOSFER & LO-FI SORE
+        // ============================================================================
+        let audioCtx = null;
+        let isAudioPlaying = false;
+        let chordInterval = null;
+
+        function initAndStartAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            isAudioPlaying = true;
+            document.getElementById('audio-icon').innerText = '🔊';
+            document.getElementById('audio-text').innerText = 'Suara: Aktif';
+
+            // Mainkan progresi akor lo-fi lembut setiap beberapa detik
+            const chords = [
+                [261.63, 329.63, 392.00, 493.88], // Cmaj7
+                [220.00, 261.63, 329.63, 392.00], // Am7
+                [174.61, 220.00, 261.63, 349.23], // Fmaj7
+                [196.00, 246.94, 293.66, 392.00]  // G6
+            ];
+            let chordIdx = 0;
+
+            const playSoftChord = () => {
+                if (!isAudioPlaying || !audioCtx) return;
+                const now = audioCtx.currentTime;
+                const notes = chords[chordIdx % chords.length];
+                chordIdx++;
+
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.0001, now + idx * 0.08);
+                    gain.gain.linearRampToValueAtTime(0.022, now + idx * 0.08 + 0.6);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 4.2);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + 4.3);
+                });
+            };
+
+            playSoftChord();
+            if (chordInterval) clearInterval(chordInterval);
+            chordInterval = setInterval(playSoftChord, 4400);
+        }
+
+        function toggleAudio() {
+            if (!isAudioPlaying) {
+                initAndStartAudio();
+            } else {
+                isAudioPlaying = false;
+                if (chordInterval) clearInterval(chordInterval);
+                document.getElementById('audio-icon').innerText = '🔇';
+                document.getElementById('audio-text').innerText = 'Suara: Mati';
+            }
+        }
+
+        function playSfx(type) {
+            if (!audioCtx || !isAudioPlaying) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'shutter') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(900, now);
+                osc.frequency.exponentialRampToValueAtTime(180, now + 0.09);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'coin') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now);
+                osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.36);
+            } else if (type === 'purr') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.linearRampToValueAtTime(480, now + 0.25);
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.32);
+            }
+        }
+
+        // ============================================================================
+        // 5. UTILITAS WARNA & INTERPOLASI LANGIT SENJA
+        // ============================================================================
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function lerpColor(hexA, hexB, amount) {
+            const t = Math.max(0, Math.min(1, amount));
+            const ah = parseInt(hexA.replace('#', ''), 16);
+            const bh = parseInt(hexB.replace('#', ''), 16);
+
+            const ar = (ah >> 16) & 255, ag = (ah >> 8) & 255, ab = ah & 255;
+            const br = (bh >> 16) & 255, bg = (bh >> 8) & 255, bb = bh & 255;
+
+            const rr = Math.round(ar + t * (br - ar));
+            const rg = Math.round(ag + t * (bg - ag));
+            const rb = Math.round(ab + t * (bb - ab));
+
+            return `#${((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1)}`;
+        }
+
+        function updateClockDisplay() {
+            // 0.0 = 17:10, 1.0 = 18:20 (total 70 menit)
+            const totalMinutes = Math.floor(17 * 60 + 10 + state.sunsetProgress * 70);
+            const hours = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            document.getElementById('clock-display').innerText = 
+                `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+            const phaseLabel = document.getElementById('sky-phase-label');
+            if (state.sunsetProgress < 0.35) {
+                phaseLabel.innerText = 'Golden Hour';
+            } else if (state.sunsetProgress < 0.72) {
+                phaseLabel.innerText = 'Senja Jingga';
+            } else {
+                phaseLabel.innerText = 'Lembayung Maghrib';
+            }
+
+            // Update lokasi berdasarkan posisi X pemain
+            const locEl = document.getElementById('location-label');
+            let areaName = 'Jalan Perumahan Lama';
+            if (player.x > 550 && player.x <= 1150) areaName = 'Sudut Mesin Otomatis';
+            else if (player.x > 1150 && player.x <= 1700) areaName = 'Halte Bus Terakhir';
+            else if (player.x > 1700 && player.x <= 2280) areaName = 'Perlintasan Kereta Komuter';
+            else if (player.x > 2280 && player.x <= 2850) areaName = 'Kedai Kopi Lentera Sore';
+            else if (player.x > 2850) areaName = 'Anjungan Bukit Senja';
+
+            locEl.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span><span>${areaName}</span>`;
+        }
+
+        // ============================================================================
+        // 6. SISTEM DIALOG & INTERAKSI
+        // ============================================================================
+        function startDialogue(title, subtitle, lines, timeAdvance = 0.03, onComplete = null) {
+            state.dialogueActive = true;
+            state.currentDialogue = { title, subtitle, lines, timeAdvance, onComplete };
+            state.dialogueStep = 0;
+
+            document.getElementById('dialogue-container').classList.remove('hidden');
+            renderDialogueLine();
+        }
+
+        function renderDialogueLine() {
+            if (!state.currentDialogue) return;
+            const line = state.currentDialogue.lines[state.dialogueStep];
+            document.getElementById('dialogue-badge').innerText = line.speaker;
+            document.getElementById('dialogue-subtitle').innerText = state.currentDialogue.subtitle || '';
+            document.getElementById('dialogue-text').innerText = line.text;
+
+            const nextBtn = document.getElementById('dialogue-next-btn');
+            if (state.dialogueStep >= state.currentDialogue.lines.length - 1) {
+                nextBtn.innerText = 'Selesai ✓';
+            } else {
+                nextBtn.innerText = 'Lanjut ▸';
+            }
+        }
+
+        function advanceDialogue() {
+            if (!state.dialogueActive || !state.currentDialogue) return;
+            state.dialogueStep++;
+            if (state.dialogueStep >= state.currentDialogue.lines.length) {
+                const cb = state.currentDialogue.onComplete;
+                const adv = state.currentDialogue.timeAdvance || 0;
+                closeDialogue();
+                state.sunsetProgress = Math.min(1, state.sunsetProgress + adv);
+                document.getElementById('sunset-slider').value = state.sunsetProgress;
+                if (cb) cb();
+            } else {
+                renderDialogueLine();
+            }
+        }
+
+        function closeDialogue() {
+            state.dialogueActive = false;
+            state.currentDialogue = null;
+            document.getElementById('dialogue-container').classList.add('hidden');
+        }
+
+        function triggerNearestInteraction() {
+            if (state.dialogueActive) {
+                advanceDialogue();
+                return;
+            }
+            if (state.nearestInteractable) {
+                state.nearestInteractable.onInteract();
+            } else {
+                showToast('🚶 Jalan mendekati objek atau karakter untuk berinteraksi.');
+            }
+        }
+
+        // ============================================================================
+        // 7. FITUR FOTOGRAFI SENJA & ALBUM
+        // ============================================================================
+        function takeSnapshot() {
+            playSfx('shutter');
+
+            // Tampilkan viewfinder & efek kilat kamera
+            const flash = document.getElementById('camera-flash');
+            const vf = document.getElementById('viewfinder');
+            vf.classList.remove('hidden');
+            flash.style.opacity = '0.85';
+            setTimeout(() => { flash.style.opacity = '0'; }, 90);
+            setTimeout(() => { vf.classList.add('hidden'); }, 950);
+
+            // Cek apakah pemain dekat dengan salah satu spot foto ikonik
+            let matchedSpot = null;
+            for (const spot of photoSpots) {
+                if (Math.abs(player.x - spot.x) < 230) {
+                    matchedSpot = spot;
+                    break;
+                }
+            }
+
+            const timeStr = document.getElementById('clock-display').innerText;
+            const title = matchedSpot ? matchedSpot.title : 'Sudut Jalan Sore Hari';
+            const desc = matchedSpot ? matchedSpot.desc : 'Langit senja yang tenang di perjalanan pulang.';
+
+            if (matchedSpot) {
+                state.capturedSpotIds.add(matchedSpot.id);
+            }
+
+            // Simpan thumbnail dari canvas saat ini
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            state.photos.unshift({ title, desc, timeStr, dataUrl });
+
+            document.getElementById('photo-count').innerText = `${state.capturedSpotIds.size}/${photoSpots.length}`;
+            showToast(`📸 Potret tersimpan: "${title}" (${timeStr})`);
+        }
+
+        function toggleAlbumModal() {
+            const modal = document.getElementById('album-modal');
+            const grid = document.getElementById('album-grid');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+
+                if (state.photos.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-2 text-center py-12 text-amber-200/60 text-sm">
+                            Belum ada foto yang diambil.<br>
+                            Tekan tombol <strong>[F]</strong> atau ikon <strong>📸 Potret</strong> saat menemukan pemandangan senja yang indah!
+                        </div>`;
+                } else {
+                    grid.innerHTML = state.photos.map(p => `
+                        <div class="bg-black/40 border border-amber-200/20 rounded-2xl overflow-hidden flex flex-col">
+                            <img src="${p.dataUrl}" alt="${p.title}" class="w-full h-36 object-cover">
+                            <div class="p-3">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="font-semibold text-amber-200 text-xs">${p.title}</h3>
+                                    <span class="text-[10px] font-mono text-orange-300">${p.timeStr}</span>
+                                </div>
+                                <p class="text-[11px] text-amber-100/70 mt-1">${p.desc}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-2');
+            }, 2600);
+        }
+
+        // ============================================================================
+        // 8. RENDERING LAYER-LAYER VISUAL (PARALLAX ANIME SUNSET)
+        // ============================================================================
+        function drawSkyAndSun() {
+            const p = state.sunsetProgress;
+
+            // 3 tahap palet langit: Golden Hour (0) -> Deep Sunset (0.5) -> Twilight Maghrib (1.0)
+            let topCol, midCol, botCol;
+            if (p < 0.5) {
+                const t = p * 2;
+                topCol = lerpColor('#3a3f78', '#221842', t);
+                midCol = lerpColor('#f27a54', '#b5385c', t);
+                botCol = lerpColor('#ffd479', '#ff7b47', t);
+            } else {
+                const t = (p - 0.5) * 2;
+                topCol = lerpColor('#221842', '#0b0719', t);
+                midCol = lerpColor('#b5385c', '#3c1e47', t);
+                botCol = lerpColor('#ff7b47', '#963d54', t);
+            }
+
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, state.groundY);
+            skyGrad.addColorStop(0, topCol);
+            skyGrad.addColorStop(0.58, midCol);
+            skyGrad.addColorStop(1, botCol);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, state.width, state.height);
+
+            // Bintang-bintang mulai berkelip ketika p > 0.35
+            if (p > 0.3) {
+                const starAlpha = Math.min(1, (p - 0.3) * 1.4);
+                stars.forEach(s => {
+                    const sx = (s.x - state.cameraX * 0.05 + state.width * 2) % state.width;
+                    const twinkle = 0.55 + 0.45 * Math.sin(state.timeTick * 0.04 + s.twinkle);
+                    ctx.fillStyle = `rgba(255, 245, 225, ${starAlpha * twinkle})`;
+                    ctx.beginPath();
+                    ctx.arc(sx, s.y, s.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            // Matahari Terbenam dengan efek Bloom berlapis (Parallax lambat)
+            const sunScreenX = state.width * 0.72 - (state.cameraX * 0.06);
+            const sunY = state.groundY - 220 + (p * 175);
+            const sunRadius = 64;
+
+            // Lingkaran pendar luar (God rays / haze)
+            const sunGlow = ctx.createRadialGradient(sunScreenX, sunY, 10, sunScreenX, sunY, sunRadius * 4.2);
+            sunGlow.addColorStop(0, `rgba(255, 235, 180, ${0.65 - p * 0.35})`);
+            sunGlow.addColorStop(0.35, `rgba(255, 130, 75, ${0.38 - p * 0.2})`);
+            sunGlow.addColorStop(1, 'rgba(255, 90, 60, 0)');
+            ctx.fillStyle = sunGlow;
+            ctx.beginPath();
+            ctx.arc(sunScreenX, sunY, sunRadius * 4.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inti matahari
+            ctx.fillStyle = lerpColor('#fff4cc', '#ff6448', p);
+            ctx.beginPath();
+            ctx.arc(sunScreenX, sunY, sunRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Awan Senja Berlapis (Siluet ungu/kemerahan dengan tepian keemasan)
+            drawSunsetClouds(p);
+        }
+
+        function drawSunsetClouds(p) {
+            const cloudColor = lerpColor('#ff9d6c', '#381d42', p);
+            ctx.fillStyle = cloudColor;
+            ctx.globalAlpha = 0.42;
+
+            for (let i = 0; i < 7; i++) {
+                const cx = ((i * 380) - state.cameraX * 0.12 + 3000) % (state.width + 500) - 250;
+                const cy = 95 + (i % 3) * 55;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, 130, 22, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx + 55, cy - 10, 85, 18, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawDistantMountainsAndCity() {
+            const p = state.sunsetProgress;
+            const mountainColor = lerpColor('#3c2142', '#120b21', p);
+
+            // Pegunungan Jauh (Parallax 0.18)
+            ctx.fillStyle = mountainColor;
+            ctx.beginPath();
+            ctx.moveTo(0, state.groundY);
+            for (let x = -100; x <= state.width + 200; x += 180) {
+                const worldX = x + state.cameraX * 0.18;
+                const peakH = 110 + Math.sin(worldX * 0.0035) * 55 + Math.cos(worldX * 0.008) * 28;
+                ctx.lineTo(x, state.groundY - peakH);
+            }
+            ctx.lineTo(state.width + 200, state.groundY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Siluet Kota / Apartemen Kejauhan dengan Jendela Menyala (Parallax 0.32)
+            const cityColor = lerpColor('#291633', '#0d0818', p);
+            const parallaxX = state.cameraX * 0.32;
+
+            for (let i = 0; i < 28; i++) {
+                const bx = i * 140 - (parallaxX % 3920);
+                if (bx < -200 || bx > state.width + 200) continue;
+
+                const bw = 65 + (i * 37) % 55;
+                const bh = 60 + (i * 53) % 95;
+                const by = state.groundY - bh - 25;
+
+                ctx.fillStyle = cityColor;
+                ctx.fillRect(bx, by, bw, bh + 25);
+
+                // Jendela-jendela apartemen kecil yang menyala hangat saat senja makin gelap
+                if (p > 0.22) {
+                    ctx.fillStyle = `rgba(255, 200, 120, ${Math.min(0.85, p * 0.9)})`;
+                    for (let wy = by + 12; wy < state.groundY - 40; wy += 16) {
+                        for (let wx = bx + 10; wx < bx + bw - 14; wx += 14) {
+                            if (((wx + wy + i) % 5) === 0) {
+                                ctx.fillRect(wx, wy, 6, 8);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawMidgroundTrainTrack() {
+            const trackY = state.groundY - 36;
+
+            // Tanggul jembatan rel kereta di kejauhan
+            ctx.fillStyle = '#181024';
+            ctx.fillRect(0, trackY, state.width, 36);
+
+            // Kereta Komuter Lewat dengan Jendela Bercahaya Hangat
+            train.timer--;
+            if (!train.active && train.timer <= 0) {
+                train.active = true;
+                train.x = -950;
+            }
+
+            if (train.active) {
+                train.x += train.speed;
+                const screenTrainX = train.x - state.cameraX * 0.55;
+
+                for (let c = 0; c < train.cars; c++) {
+                    const carX = screenTrainX + c * 215;
+                    const carY = trackY - 38;
+
+                    // Badan gerbong siluet
+                    ctx.fillStyle = '#1f162e';
+                    ctx.fillRect(carX, carY, 202, 36);
+
+                    // Garis aksen jingga komuter
+                    ctx.fillStyle = '#ff7e47';
+                    ctx.fillRect(carX, carY + 22, 202, 4);
+
+                    // Jendela gerbong bercahaya
+                    ctx.fillStyle = '#ffe599';
+                    ctx.shadowColor = '#ffae42';
+                    ctx.shadowBlur = 12;
+                    for (let w = 0; w < 5; w++) {
+                        ctx.fillRect(carX + 14 + w * 36, carY + 7, 26, 12);
+                    }
+                    ctx.shadowBlur = 0;
+                }
+
+                if (screenTrainX > state.width + 600) {
+                    train.active = false;
+                    train.timer = 550; // Muncul lagi nanti
+                }
+            }
+        }
+
+        // ============================================================================
+        // 9. RENDERING OBJEK JALANAN, TIANG LISTRIK, HALTE, WARUNG, NPC
+        // ============================================================================
+        function drawStreetAndEnvironment() {
+            const camX = state.cameraX;
+            const gY = state.groundY;
+            const p = state.sunsetProgress;
+
+            // Tembok pembatas jalan & trotoar
+            ctx.fillStyle = lerpColor('#241830', '#100a1a', p);
+            ctx.fillRect(0, gY - 24, state.width, 24);
+
+            // Permukaan Aspal Jalanan
+            const roadGrad = ctx.createLinearGradient(0, gY, 0, state.height);
+            roadGrad.addColorStop(0, lerpColor('#291c36', '#120d1d', p));
+            roadGrad.addColorStop(1, '#090610');
+            ctx.fillStyle = roadGrad;
+            ctx.fillRect(0, gY, state.width, state.height - gY);
+
+            // Garis putih putus-putus di jalan
+            ctx.fillStyle = `rgba(255, 215, 175, ${0.22 - p * 0.08})`;
+            for (let x = 0; x < WORLD_WIDTH; x += 110) {
+                const sx = x - camX;
+                if (sx > -80 && sx < state.width + 80) {
+                    ctx.fillRect(sx, gY + 38, 52, 4);
+                }
+            }
+
+            // 1. Kabel & Tiang Listrik (Khas Anime Makoto Shinkai)
+            ctx.strokeStyle = '#120b1d';
+            ctx.lineWidth = 1.6;
+            for (let i = 0; i < utilityPoles.length - 1; i++) {
+                const x1 = utilityPoles[i] - camX;
+                const x2 = utilityPoles[i + 1] - camX;
+                if (x2 < -100 || x1 > state.width + 100) continue;
+
+                const sway = Math.sin(state.timeTick * 0.03 + i) * 3;
+                // Dua lapis kabel melengkung
+                ctx.beginPath();
+                ctx.moveTo(x1, gY - 235);
+                ctx.quadraticCurveTo((x1 + x2) / 2, gY - 195 + sway, x2, gY - 235);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x1, gY - 210);
+                ctx.quadraticCurveTo((x1 + x2) / 2, gY - 175 - sway, x2, gY - 210);
+                ctx.stroke();
+            }
+
+            // Gambar masing-masing tiang & lampu jalan
+            utilityPoles.forEach((poleX) => {
+                const sx = poleX - camX;
+                if (sx < -120 || sx > state.width + 120) return;
+
+                ctx.fillStyle = '#140d21';
+                ctx.fillRect(sx - 5, gY - 260, 10, 260); // Tiang utama
+                ctx.fillRect(sx - 24, gY - 240, 48, 5);  // Palang atas
+                ctx.fillRect(sx - 18, gY - 215, 36, 4);  // Palang kedua
+
+                // Lampu jalan menyala hangat saat senja mulai turun
+                const lampIntensity = Math.max(0.2, p);
+                ctx.fillStyle = '#ffdf9e';
+                ctx.beginPath();
+                ctx.arc(sx + 18, gY - 195, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Kerucut cahaya lampu jalan (Volumetric light cone)
+                const coneGrad = ctx.createRadialGradient(sx + 18, gY - 195, 4, sx + 18, gY - 40, 170);
+                coneGrad.addColorStop(0, `rgba(255, 190, 100, ${0.42 * lampIntensity})`);
+                coneGrad.addColorStop(1, 'rgba(255, 160, 80, 0)');
+                ctx.fillStyle = coneGrad;
+                ctx.beginPath();
+                ctx.moveTo(sx + 12, gY - 195);
+                ctx.lineTo(sx - 95, gY + 15);
+                ctx.lineTo(sx + 135, gY + 15);
+                ctx.closePath();
+                ctx.fill();
+            });
+
+            // 2. Bangku Taman (x: 280)
+            drawParkBench(280 - camX, gY);
+
+            // 3. Mesin Penjual Otomatis / Vending Machine (x: 680)
+            drawVendingMachine(680 - camX, gY, p);
+
+            // 4. Tembok Bata & Mochi si Kucing Oren (x: 1030)
+            drawBrickWallAndCat(1030 - camX, gY);
+
+            // 5. Halte Bus Kayu & Nadia (x: 1380)
+            drawBusStopAndNadia(1380 - camX, gY, p);
+
+            // 6. Perlintasan Kereta & Lampu Kedip (x: 1980)
+            drawRailroadCrossing(1980 - camX, gY);
+
+            // 7. Kedai Kopi "Lentera Sore" (x: 2560)
+            drawCoffeeShop(2560 - camX, gY, p);
+
+            // 8. Anjungan Pagar Bukit Senja (x: 3120)
+            drawHillOverlook(3120 - camX, gY);
+        }
+
+        function drawParkBench(sx, gY) {
+            if (sx < -150 || sx > state.width + 150) return;
+            ctx.fillStyle = '#26172e';
+            ctx.fillRect(sx - 45, gY - 28, 90, 8);
+            ctx.fillRect(sx - 45, gY - 42, 90, 10);
+            ctx.fillRect(sx - 35, gY - 20, 8, 20);
+            ctx.fillRect(sx + 27, gY - 20, 8, 20);
+        }
+
+        function drawVendingMachine(sx, gY, p) {
+            if (sx < -150 || sx > state.width + 150) return;
+
+            // Pendar cahaya sekitar mesin otomatis
+            const glow = ctx.createRadialGradient(sx, gY - 55, 10, sx, gY - 55, 115);
+            glow.addColorStop(0, `rgba(255, 210, 150, ${0.45 + p * 0.35})`);
+            glow.addColorStop(1, 'rgba(255, 180, 100, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(sx, gY - 55, 115, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Bodi mesin
+            ctx.fillStyle = '#362347';
+            ctx.fillRect(sx - 34, gY - 112, 68, 112);
+
+            // Etalase minuman bercahaya
+            ctx.fillStyle = '#ffefd4';
+            ctx.fillRect(sx - 26, gY - 102, 52, 62);
+
+            // Barisan minuman kaleng warna-warni
+            const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#ff9f43'];
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    ctx.fillStyle = colors[(r + c) % colors.length];
+                    ctx.fillRect(sx - 22 + c * 12, gY - 96 + r * 19, 8, 12);
+                }
+            }
+
+            // Lubang pengambilan
+            ctx.fillStyle = '#160e21';
+            ctx.fillRect(sx - 20, gY - 24, 40, 14);
+        }
+
+        function drawBrickWallAndCat(sx, gY) {
+            if (sx < -150 || sx > state.width + 150) return;
+
+            // Tembok pendek
+            ctx.fillStyle = '#2d1c38';
+            ctx.fillRect(sx - 70, gY - 48, 140, 48);
+
+            // Siluet Kucing Oren duduk manis dengan ekor bergoyang
+            const tailWag = Math.sin(state.timeTick * 0.07) * 5;
+            ctx.fillStyle = '#e87a3e';
+            // Badan kucing
+            ctx.beginPath();
+            ctx.ellipse(sx, gY - 58, 12, 14, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Kepala kucing
+            ctx.beginPath();
+            ctx.arc(sx - 6, gY - 72, 9, 0, Math.PI * 2);
+            ctx.fill();
+            // Telinga lancip
+            ctx.beginPath();
+            ctx.moveTo(sx - 13, gY - 77);
+            ctx.lineTo(sx - 10, gY - 86);
+            ctx.lineTo(sx - 5, gY - 79);
+            ctx.moveTo(sx - 4, gY - 79);
+            ctx.lineTo(sx, gY - 86);
+            ctx.lineTo(sx + 2, gY - 77);
+            ctx.fill();
+            // Ekor melengkung
+            ctx.strokeStyle = '#e87a3e';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(sx + 10, gY - 52);
+            ctx.quadraticCurveTo(sx + 24, gY - 65 + tailWag, sx + 20, gY - 75 + tailWag);
+            ctx.stroke();
+        }
+
+        function drawBusStopAndNadia(sx, gY, p) {
+            if (sx < -220 || sx > state.width + 220) return;
+
+            // Atap & Tiang Halte Klasik
+            ctx.fillStyle = '#21152b';
+            ctx.fillRect(sx - 85, gY - 135, 10, 135);
+            ctx.fillRect(sx + 75, gY - 135, 10, 135);
+            ctx.fillStyle = '#382240';
+            ctx.fillRect(sx - 100, gY - 148, 200, 16);
+
+            // Papan jadwal & Rambu Halte bulat
+            ctx.fillStyle = '#1b1124';
+            ctx.fillRect(sx + 115, gY - 125, 4, 125);
+            ctx.fillStyle = '#ff9248';
+            ctx.beginPath();
+            ctx.arc(sx + 117, gY - 132, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Lampu hangat di bawah atap halte
+            const halteLight = ctx.createRadialGradient(sx, gY - 130, 5, sx, gY - 60, 120);
+            halteLight.addColorStop(0, `rgba(255, 205, 130, ${0.4 + p * 0.4})`);
+            halteLight.addColorStop(1, 'rgba(255, 180, 100, 0)');
+            ctx.fillStyle = halteLight;
+            ctx.fillRect(sx - 95, gY - 132, 190, 132);
+
+            // Bangku halte
+            ctx.fillStyle = '#2e1d3a';
+            ctx.fillRect(sx - 60, gY - 26, 120, 7);
+
+            // Karakter NPC: Nadia (Berdiri di dekat bangku halte dengan rambut sebahu tertiup angin)
+            const nx = sx + 22;
+            const hairSway = Math.sin(state.timeTick * 0.05) * 3;
+
+            // Kaki
+            ctx.fillStyle = '#1a1124';
+            ctx.fillRect(nx - 6, gY - 34, 5, 34);
+            ctx.fillRect(nx + 2, gY - 34, 5, 34);
+
+            // Rok & Cardigan hangat
+            ctx.fillStyle = '#332447';
+            ctx.beginPath();
+            ctx.moveTo(nx - 12, gY - 32);
+            ctx.lineTo(nx + 12, gY - 32);
+            ctx.lineTo(nx + 8, gY - 58);
+            ctx.lineTo(nx - 8, gY - 58);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#e08963'; // Sweater senja
+            ctx.fillRect(nx - 9, gY - 68, 18, 22);
+
+            // Kepala & Rambut
+            ctx.fillStyle = '#fbdcc4';
+            ctx.beginPath();
+            ctx.arc(nx, gY - 76, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#241734';
+            ctx.beginPath();
+            ctx.arc(nx + 1, gY - 78, 10, Math.PI * 0.85, Math.PI * 2.15);
+            ctx.lineTo(nx + 12 + hairSway, gY - 64);
+            ctx.lineTo(nx - 8, gY - 66);
+            ctx.fill();
+        }
+
+        function drawRailroadCrossing(sx, gY) {
+            if (sx < -200 || sx > state.width + 200) return;
+
+            // Tiang palang kereta kuning-hitam
+            ctx.fillStyle = '#1c1426';
+            ctx.fillRect(sx - 6, gY - 155, 12, 155);
+
+            // Tanda silang Andreas (X)
+            ctx.strokeStyle = '#ffcf70';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(sx - 18, gY - 145);
+            ctx.lineTo(sx + 18, gY - 115);
+            ctx.moveTo(sx + 18, gY - 145);
+            ctx.lineTo(sx - 18, gY - 115);
+            ctx.stroke();
+
+            // Lampu peringatan merah berkedip bergantian
+            const blink = Math.floor(state.timeTick / 18) % 2 === 0;
+            ctx.fillStyle = blink ? '#ff3838' : '#4a151b';
+            ctx.beginPath();
+            ctx.arc(sx - 14, gY - 95, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = !blink ? '#ff3838' : '#4a151b';
+            ctx.beginPath();
+            ctx.arc(sx + 14, gY - 95, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawCoffeeShop(sx, gY, p) {
+            if (sx < -260 || sx > state.width + 260) return;
+
+            // Bangunan Kayu Kedai Kopi
+            ctx.fillStyle = '#23162e';
+            ctx.fillRect(sx - 110, gY - 145, 220, 145);
+
+            // Kanopi bergaris
+            ctx.fillStyle = '#9e3d48';
+            ctx.beginPath();
+            ctx.moveTo(sx - 122, gY - 110);
+            ctx.lineTo(sx + 122, gY - 110);
+            ctx.lineTo(sx + 110, gY - 145);
+            ctx.lineTo(sx - 110, gY - 145);
+            ctx.closePath();
+            ctx.fill();
+
+            // Jendela kedai yang hangat & terang
+            ctx.fillStyle = '#ffdfa8';
+            ctx.fillRect(sx - 85, gY - 92, 115, 58);
+
+            // Siluet Pak Raka menyeduh kopi di dalam
+            ctx.fillStyle = '#382230';
+            ctx.beginPath();
+            ctx.arc(sx - 25, gY - 68, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(sx - 37, gY - 56, 24, 22);
+
+            // Lentera gantung di depan kedai
+            const lanternX = sx + 85;
+            const lanternY = gY - 95 + Math.sin(state.timeTick * 0.05) * 2;
+            ctx.fillStyle = '#ff9b42';
+            ctx.beginPath();
+            ctx.arc(lanternX, lanternY, 11, 0, Math.PI * 2);
+            ctx.fill();
+
+            const lanternGlow = ctx.createRadialGradient(lanternX, lanternY, 4, lanternX, lanternY, 95);
+            lanternGlow.addColorStop(0, `rgba(255, 175, 80, ${0.5 + p * 0.35})`);
+            lanternGlow.addColorStop(1, 'rgba(255, 140, 60, 0)');
+            ctx.fillStyle = lanternGlow;
+            ctx.beginPath();
+            ctx.arc(lanternX, lanternY, 95, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawHillOverlook(sx, gY) {
+            if (sx < -250 || sx > state.width + 250) return;
+
+            // Pagar besi pembatas bukit tempat menikmati senja
+            ctx.strokeStyle = '#181024';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(sx - 130, gY - 42);
+            ctx.lineTo(sx + 130, gY - 42);
+            ctx.moveTo(sx - 130, gY - 22);
+            ctx.lineTo(sx + 130, gY - 22);
+            for (let post = -120; post <= 120; post += 30) {
+                ctx.moveTo(sx + post, gY);
+                ctx.lineTo(sx + post, gY - 48);
+            }
+            ctx.stroke();
+        }
+
+        // ============================================================================
+        // 10. RENDERING KARAKTER UTAMA (SORA) & INDIKATOR INTERAKSI
+        // ============================================================================
+        function drawPlayer() {
+            const sx = player.x - state.cameraX;
+            const gY = state.groundY;
+            const dir = player.facing;
+
+            const legSwing = player.isMoving ? Math.sin(player.walkCycle) * 11 : 0;
+            const bob = player.isMoving ? Math.abs(Math.cos(player.walkCycle)) * 3.5 : Math.sin(state.timeTick * 0.05) * 1.2;
+
+            ctx.save();
+            ctx.translate(sx, gY - bob);
+
+            // Bayangan lembut di aspal
+            ctx.fillStyle = 'rgba(8, 4, 15, 0.45)';
+            ctx.beginPath();
+            ctx.ellipse(0, bob, 18, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Kaki Belakang
+            ctx.strokeStyle = '#191224';
+            ctx.lineWidth = 6.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(0, -32);
+            ctx.lineTo(-legSwing, -2);
+            ctx.stroke();
+
+            // Kaki Depan
+            ctx.beginPath();
+            ctx.moveTo(0, -32);
+            ctx.lineTo(legSwing, -2);
+            ctx.stroke();
+
+            // Ransel / Tas Selempang
+            ctx.fillStyle = '#3d263b';
+            ctx.fillRect(-dir * 11, -64, 10, 24);
+
+            // Badan / Jaket Hoodie Senja
+            ctx.fillStyle = '#29203d';
+            ctx.beginPath();
+            ctx.roundRect(-10, -68, 20, 38, 6);
+            ctx.fill();
+
+            // Rim light keemasan di tepi tubuh menghadap matahari
+            ctx.strokeStyle = 'rgba(255, 190, 115, 0.55)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-10, -68, 20, 38);
+
+            // Kepala
+            ctx.fillStyle = '#ffe0c8';
+            ctx.beginPath();
+            ctx.arc(dir * 2, -79, 10.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rambut Anime
+            ctx.fillStyle = '#181226';
+            ctx.beginPath();
+            ctx.arc(dir * 1, -81, 11.5, Math.PI * 0.75, Math.PI * 2.25);
+            ctx.lineTo(dir * 12, -74);
+            ctx.lineTo(-dir * 10, -73);
+            ctx.closePath();
+            ctx.fill();
+
+            // Syal Oranye yang Berkibar Tertiup Angin Sore
+            const scarfWaveY = Math.sin(state.timeTick * 0.09) * 5;
+            const scarfLength = player.isRunning ? 28 : 20;
+            ctx.fillStyle = '#ff7b47';
+            ctx.fillRect(-9, -69, 18, 6);
+            ctx.beginPath();
+            ctx.moveTo(-dir * 6, -66);
+            ctx.quadraticCurveTo(
+                -dir * (6 + scarfLength * 0.5),
+                -63 + scarfWaveY,
+                -dir * (6 + scarfLength),
+                -56 + scarfWaveY * 1.4
+            );
+            ctx.lineTo(-dir * (4 + scarfLength), -50 + scarfWaveY * 1.4);
+            ctx.quadraticCurveTo(
+                -dir * (4 + scarfLength * 0.5),
+                -58 + scarfWaveY,
+                -dir * 4,
+                -62
+            );
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawFloatingPromptsAndParticles() {
+            const camX = state.cameraX;
+            const gY = state.groundY;
+
+            // Kawanan burung di langit
+            ctx.strokeStyle = '#21132b';
+            ctx.lineWidth = 1.8;
+            flocks.forEach(f => {
+                f.x -= f.speed;
+                if (f.x < -300) f.x = WORLD_WIDTH + 300;
+                const fx = f.x - camX * 0.4;
+                for (let b = 0; b < f.count; b++) {
+                    const bx = fx + b * 22;
+                    const by = f.y + (b % 2) * 10 + Math.sin(state.timeTick * 0.12 + b) * 3;
+                    const wing = Math.sin(state.timeTick * 0.2 + b) * 5;
+                    ctx.beginPath();
+                    ctx.moveTo(bx - 6, by + wing);
+                    ctx.quadraticCurveTo(bx - 3, by - 3, bx, by);
+                    ctx.quadraticCurveTo(bx + 3, by - 3, bx + 6, by + wing);
+                    ctx.stroke();
+                }
+            });
+
+            // Partikel debu senja keemasan (Floating Dust Motes)
+            dustParticles.forEach(pt => {
+                pt.x += pt.vx;
+                pt.y += pt.vy + Math.sin(state.timeTick * 0.03 + pt.phase) * 0.15;
+                if (pt.x < 0) pt.x = WORLD_WIDTH;
+                if (pt.y < 40) pt.y = gY - 10;
+
+                const sx = pt.x - camX;
+                if (sx < -20 || sx > state.width + 20) return;
+
+                ctx.fillStyle = `rgba(255, 220, 155, ${pt.alpha})`;
+                ctx.beginPath();
+                ctx.arc(sx, pt.y, pt.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Indikator Spot Foto & Objek Interaktif
+            if (state.nearestInteractable && !state.dialogueActive) {
+                const item = state.nearestInteractable;
+                const sx = item.x - camX;
+                const floatY = gY - 155 + Math.sin(state.timeTick * 0.08) * 5;
+
+                // Balon petunjuk di atas objek
+                ctx.font = '600 12px "Plus Jakarta Sans", sans-serif';
+                const textWidth = ctx.measureText(item.prompt).width;
+                const boxW = textWidth + 26;
+
+                ctx.fillStyle = 'rgba(20, 14, 28, 0.88)';
+                ctx.strokeStyle = 'rgba(255, 165, 100, 0.75)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(sx - boxW / 2, floatY - 18, boxW, 28, 10);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffd8a8';
+                ctx.textAlign = 'center';
+                ctx.fillText(item.prompt, sx, floatY);
+                ctx.textAlign = 'left';
+            }
+        }
+
+        // ============================================================================
+        // 11. GAME LOOP & LOGIKA UPDATE
+        // ============================================================================
+        function updateGame() {
+            state.timeTick++;
+
+            // Progresi waktu senja perlahan secara otomatis
+            if (!state.dialogueActive && state.sunsetProgress < 1) {
+                state.sunsetProgress = Math.min(1, state.sunsetProgress + state.autoTimeSpeed);
+                document.getElementById('sunset-slider').value = state.sunsetProgress;
+            }
+            updateClockDisplay();
+
+            // Pergerakan Pemain (Bila tidak sedang membuka dialog)
+            player.isMoving = false;
+            player.isRunning = keys.shift;
+            const speed = player.isRunning ? player.runSpeed : player.walkSpeed;
+
+            if (!state.dialogueActive) {
+                if (keys.left) {
+                    player.vx = -speed;
+                    player.facing = -1;
+                    player.isMoving = true;
+                } else if (keys.right) {
+                    player.vx = speed;
+                    player.facing = 1;
+                    player.isMoving = true;
+                } else {
+                    player.vx = 0;
+                }
+
+                player.x += player.vx;
+                player.x = Math.max(120, Math.min(WORLD_WIDTH - 120, player.x));
+
+                if (player.isMoving) {
+                    player.walkCycle += player.isRunning ? 0.26 : 0.16;
+                } else {
+                    player.walkCycle = 0;
+                }
+            }
+
+            // Kamera halus mengikuti karakter utama
+            const targetCamX = player.x - state.width * 0.42;
+            const maxCamX = Math.max(0, WORLD_WIDTH - state.width);
+            const clampedTarget = Math.max(0, Math.min(maxCamX, targetCamX));
+            state.cameraX += (clampedTarget - state.cameraX) * 0.08;
+
+            // Cek objek interaktif terdekat
+            let closest = null;
+            let minDist = Infinity;
+            for (const item of interactables) {
+                const dist = Math.abs(player.x - item.x);
+                if (dist < item.radius && dist < minDist) {
+                    minDist = dist;
+                    closest = item;
+                }
+            }
+            state.nearestInteractable = closest;
+
+            const interactBtnLabel = document.getElementById('interact-btn-label');
+            if (closest) {
+                interactBtnLabel.innerText = closest.prompt;
+            } else {
+                interactBtnLabel.innerText = 'Interaksi [E]';
+            }
+        }
+
+        function gameLoop() {
+            updateGame();
+
+            ctx.clearRect(0, 0, state.width, state.height);
+            drawSkyAndSun();
+            drawDistantMountainsAndCity();
+            drawMidgroundTrainTrack();
+            drawStreetAndEnvironment();
+            drawPlayer();
+            drawFloatingPromptsAndParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============================================================================
+        // 12. EVENT LISTENERS (KEYBOARD, SENTUH, RESIZE, SLIDER)
+        // ============================================================================
+        function handleResize() {
+            state.width = window.innerWidth;
+            state.height = window.innerHeight;
+            state.groundY = state.height - GROUND_OFFSET;
+            canvas.width = state.width;
+            canvas.height = state.height;
+        }
+
+        window.addEventListener('resize', handleResize);
+
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'a' || e.key === 'ArrowLeft') keys.left = true;
+            if (k === 'd' || e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'Shift') keys.shift = true;
+
+            if (k === 'e' || e.key === ' ') {
+                e.preventDefault();
+                triggerNearestInteraction();
+            }
+            if (k === 'f') {
+                e.preventDefault();
+                takeSnapshot();
+            }
+            if (e.key === 'Escape') {
+                closeDialogue();
+                const modal = document.getElementById('album-modal');
+                if (!modal.classList.contains('hidden')) toggleAlbumModal();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'a' || e.key === 'ArrowLeft') keys.left = false;
+            if (k === 'd' || e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'Shift') keys.shift = false;
+        });
+
+        // Kontrol Tombol Layar Sentuh / Mouse
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        const bindHoldButton = (el, keyName) => {
+            el.addEventListener('mousedown', () => keys[keyName] = true);
+            el.addEventListener('mouseup', () => keys[keyName] = false);
+            el.addEventListener('mouseleave', () => keys[keyName] = false);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+        };
+
+        bindHoldButton(btnLeft, 'left');
+        bindHoldButton(btnRight, 'right');
+
+        // Klik di kanvas pada objek untuk interaksi langsung
+        canvas.addEventListener('click', (e) => {
+            const clickWorldX = e.clientX + state.cameraX;
+            for (const item of interactables) {
+                if (Math.abs(clickWorldX - item.x) < 75 && Math.abs(player.x - item.x) < item.radius + 40) {
+                    item.onInteract();
+                    return;
+                }
+            }
+        });
+
+        // Slider Pengatur Waktu Senja
+        document.getElementById('sunset-slider').addEventListener('input', (e) => {
+            state.sunsetProgress = parseFloat(e.target.value);
+            updateClockDisplay();
+        });
+
+        // Mulai Game saat Halaman Selesai Dimuat
+        window.onload = function () {
+            handleResize();
+            document.getElementById('photo-count').innerText = `0/${photoSpots.length}`;
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
